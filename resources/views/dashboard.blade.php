@@ -1,10 +1,6 @@
-@extends('layout')
+@extends('layouts.app')
 
 @section('content')
-
-<div class="card">
-    <h2>Welcome {{ session('user') }} 👋</h2>
-    <p>This is your dashboard.</p>
-</div>
-
+<h2>Dashboard</h2>
+<a href="/users">View Users</a>
 @endsection
