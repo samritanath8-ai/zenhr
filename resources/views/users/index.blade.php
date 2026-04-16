@@ -2,42 +2,90 @@
 
 @section('content')
 
-<h2 style="font-size:24px; margin-bottom:20px;">Users</h2>
+<div style="max-width:1100px; margin:0 auto;">
 
-<a href="/users/create" style="padding:10px 15px; background:#6b46c1; color:white; text-decoration:none; border-radius:6px;">
-    + Add User
-</a>
+    <!-- TITLE -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h2 style="margin:0;">Users</h2>
 
-<br><br>
+        <a href="/users/create" style="
+            padding:10px 18px;
+            background:#6366f1;
+            color:white;
+            border-radius:8px;
+            text-decoration:none;
+            font-weight:500;
+        ">
+            + Add User
+        </a>
+    </div>
 
-<table border="1" cellpadding="12" style="width:100%; border-collapse:collapse;">
-<tr style="background:#f3f4f6;">
-    <th>Name</th>
-    <th>Email</th>
-    <th>Actions</th>
-</tr>
+    <!-- TABLE CARD -->
+    <div style="
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    width:100%;
+    max-width:1000px;
+    margin-top:20px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.05);
+    ">
 
-@foreach($users as $user)
-<tr>
-    <td>{{ $user->name }}</td>
-    <td>{{ $user->email }}</td>
-    <td>
+        <table style="width:100%; border-collapse:collapse;">
 
-        <a href="/users/{{ $user->id }}/edit" style="color:blue;">Edit</a>
+            <!-- HEADER -->
+            <tr style="background:#f1f5f9;">
+                <th style="padding:15px; text-align:left;">Name</th>
+                <th style="padding:15px; text-align:left;">Email</th>
+                <th style="padding:15px; text-align:right;">Actions</th>
+            </tr>
 
+            @foreach($users as $user)
+            <tr style="border-bottom:1px solid #e5e7eb;">
 
-        <form method="POST" action="/users/{{ $user->id }}" style="display:inline;">
-            @csrf
-            @method('DELETE')
-            <button type="submit" style="color:red; border:none; background:none; cursor:pointer;">
-                Delete
-            </button>
-        </form>
+                <td style="padding:15px;">
+                    {{ $user->name }}
+                </td>
 
-    </td>
-</tr>
-@endforeach
+                <td style="padding:15px;">
+                    {{ $user->email }}
+                </td>
 
-</table>
+                <!-- ACTIONS (RIGHT ALIGNED CLEANLY) -->
+                <td style="padding:15px; text-align:right;">
+
+                    <a href="/users/{{ $user->id }}/edit" style="
+                        color:#2563eb;
+                        text-decoration:none;
+                        font-weight:500;
+                        margin-right:15px;
+                    ">
+                        Edit
+                    </a>
+
+                    <form method="POST" action="/users/{{ $user->id }}" style="display:inline;">
+                        @csrf
+                        @method('DELETE')
+                        <button style="
+                            color:#ef4444;
+                            border:none;
+                            background:none;
+                            cursor:pointer;
+                            font-weight:500;
+                        ">
+                            Delete
+                        </button>
+                    </form>
+
+                </td>
+
+            </tr>
+            @endforeach
+
+        </table>
+
+    </div>
+
+</div>
 
 @endsection

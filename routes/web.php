@@ -81,3 +81,37 @@ Route::put('/users/{id}', function (Request $request, $id) {
 
     return redirect('/users');
 })->middleware('auth');
+
+/* PROFILE PAGE */
+Route::get('/profile', function () {
+    return view('profile');
+})->middleware('auth');
+
+/* UPDATE PROFILE */
+Route::post('/profile', function (Request $request) {
+    $user = Auth::user();
+
+    $user->update([
+        'name' => $request->name,
+        'email' => $request->email,
+    ]);
+
+    return back();
+})->middleware('auth');
+
+Route::get('/profile', function () {
+    return view('profile');
+})->middleware('auth');
+
+Route::get('/profile/edit', function () {
+    return view('profile_edit');
+})->middleware('auth');
+
+Route::post('/profile/edit', function (Illuminate\Http\Request $request) {
+    $user = Illuminate\Support\Facades\Auth::user();
+    $user->name = $request->name;
+    $user->email = $request->email;
+    $user->save();
+
+    return redirect('/profile');
+})->middleware('auth');
