@@ -21,7 +21,7 @@ Route::post('/login', function (Request $request) {
             return back()->withErrors(['email' => 'Your account has been disabled. Contact your administrator.']);
         }
         $request->session()->regenerate();
-        return redirect('/')->intended('/dashboard');
+        return redirect()->intended('/dashboard');
     }
     return back()->withErrors(['email' => 'These credentials do not match our records.']);
 });
