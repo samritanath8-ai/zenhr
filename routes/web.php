@@ -10,10 +10,7 @@ use App\Models\User;
 /* HOME */
 Route::get('/', fn() => inertia('auth/login'))->name('home');
 
-/* LOGIN */
-Route::get('/login', fn() => inertia('auth/login'))->name('login');
 Route::post('/login', function (Request $request) {
-})->name('login.store');
     $request->validate(['email' => ['required', 'email'], 'password' => ['required']]);
     if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
         if (!Auth::user()->is_enabled) {
@@ -24,7 +21,8 @@ Route::post('/login', function (Request $request) {
         return redirect()->intended('/dashboard');
     }
     return back()->withErrors(['email' => 'These credentials do not match our records.']);
-});
+})->name('login.store');
+    
 
 /* REGISTER */
 Route::get('/register', fn() => inertia('auth/register'))->name('register');
