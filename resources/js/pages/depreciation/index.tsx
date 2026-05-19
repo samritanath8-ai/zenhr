@@ -1,6 +1,6 @@
 import { Head, usePage, useForm, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 
 interface DepreciationRecord {
     id: number;

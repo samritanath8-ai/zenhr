@@ -53,7 +53,6 @@ export default function Profile() {
         e.preventDefault();
         patch('/profile');
     };
-    const now = useMemo(() => Date.now(), []);
     return (
         <AuthenticatedLayout header="Profile">
             <Head title="Profile" />
