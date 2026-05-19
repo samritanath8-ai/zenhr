@@ -81,11 +81,13 @@ Route::get('/settings/security', function (Request $request) {
         return redirect()->route('password.confirm');
     }
 
-    return inertia('settings/security', [
-        'canManageTwoFactor' => $canManage,
-        'twoFactorEnabled' => $canManage ? Auth::user()->two_factor_secret !== null : null,
-        'requiresConfirmation' => $needsConfirm,
-    ]);
+    $props = ['canManageTwoFactor' => $canManage];
+    if ($canManage) {
+        $props['twoFactorEnabled'] = Auth::user()->two_factor_secret !== null;
+        $props['requiresConfirmation'] = $needsConfirm;
+    }
+
+    return inertia('settings/security', $props);
 })->name('security.edit');
 
     /* DASHBOARD */
@@ -266,7 +268,7 @@ Route::get('/settings/security', function (Request $request) {
     Route::patch('/transfers/{id}/approve', function ($id) {
         if (!in_array(Auth::user()->role, ['admin', 'manager'])) return redirect('/transfers');
         $transfer = \App\Models\AssetTransfer::with(['asset', 'fromUser', 'toUser', 'requester'])->findOrFail($id);
-        if ($transfer->status !== 'pending') return back();
+        if ($transfer->status !== 'pending') return redirect()->route('profile.edit');
         $asset     = $transfer->asset;
         $oldUserId = $asset->user_id;
         // Reassign asset
