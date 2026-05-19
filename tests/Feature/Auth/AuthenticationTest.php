@@ -48,4 +48,3 @@ test('users can logout', function () {
 test('users are rate limited', function () {
     $this->markTestSkipped('Rate limiting uses custom key format incompatible with Fortify test helper.');
 });
-'@
