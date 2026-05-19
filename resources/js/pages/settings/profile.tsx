@@ -1,4 +1,4 @@
-import { FormEventHandler, useMemo } from 'react';
+import { FormEventHandler } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 
@@ -37,6 +37,7 @@ const STATUS_BG: Record<string, string> = {
 };
 
 const NOW = Date.now();
+
 export default function Profile() {
     const { auth, assignedAssets } = usePage<PageProps>().props;
 
