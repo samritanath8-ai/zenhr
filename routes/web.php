@@ -406,13 +406,12 @@ Route::get('/settings/security', function (Request $request) {
 
     Route::patch('/profile', function (Request $request) {
         $user = Auth::user();
-        $user->update($request->validate([
-            'name'  => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
-        ]));
+        $validated = $request->validate(['name' => ['required', 'string', 'max:255'], 'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id]]);
+        if ($validated['email'] !== $user->email) { $validated['email_verified_at'] = null; }
+        $user->update($validated);
+
         return redirect()->route('profile.edit');
     })->name('profile.update');
-
     /* NOTIFICATION PREFERENCES */
     Route::get('/profile/notifications', function () {
         $user = Auth::user();
@@ -632,3 +631,4 @@ Route::get('/settings/security', function (Request $request) {
     })->name('assets.destroy');
 
 }); // end auth middleware group
+
