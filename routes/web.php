@@ -75,7 +75,7 @@ Route::delete('/profile', function (Request $request) {
 
 Route::get('/settings/security', function (Request $request) {
     $canManage = \Laravel\Fortify\Features::enabled(\Laravel\Fortify\Features::twoFactorAuthentication());
-    $needsConfirm = $canManage && config('fortify.confirmPassword', true);
+    $needsConfirm = $canManage && config('fortify.features.two-factor-authentication.confirm-password', true);
 
     if ($needsConfirm && ! $request->session()->get('auth.password_confirmed_at')) {
         return redirect()->route('password.confirm');
@@ -294,7 +294,7 @@ Route::get('/settings/security', function (Request $request) {
     Route::patch('/transfers/{id}/reject', function (Request $request, $id) {
         if (!in_array(Auth::user()->role, ['admin', 'manager'])) return redirect('/transfers');
         $transfer = \App\Models\AssetTransfer::with(['asset', 'toUser', 'requester'])->findOrFail($id);
-        if ($transfer->status !== 'pending') return back();
+        if ($transfer->status !== 'pending') return redirect()->route('profile.edit');
         $request->validate(['rejection_reason' => ['nullable', 'string', 'max:500']]);
         $transfer->update(['status' => 'rejected', 'rejection_reason' => $request->rejection_reason, 'reviewed_by' => Auth::id(), 'reviewed_at' => now()]);
         $transfer->requester->notify(new \App\Notifications\AssetTransferReviewed($transfer));
@@ -410,7 +410,7 @@ Route::get('/settings/security', function (Request $request) {
             'name'  => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
         ]));
-        return back();
+        return redirect()->route('profile.edit');
     })->name('profile.update');
 
     /* NOTIFICATION PREFERENCES */
