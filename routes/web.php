@@ -8,11 +8,12 @@ use Illuminate\Validation\Rules\Password;
 use App\Models\User;
 
 /* HOME */
-Route::get('/', fn() => redirect('/login'))->name('home');
+Route::get('/', fn() => inertia('auth/login'))->name('home');
 
 /* LOGIN */
 Route::get('/login', fn() => inertia('auth/login'))->name('login');
 Route::post('/login', function (Request $request) {
+})->name('login.store');
     $request->validate(['email' => ['required', 'email'], 'password' => ['required']]);
     if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
         if (!Auth::user()->is_enabled) {
@@ -20,7 +21,7 @@ Route::post('/login', function (Request $request) {
             return back()->withErrors(['email' => 'Your account has been disabled. Contact your administrator.']);
         }
         $request->session()->regenerate();
-        return redirect()->intended('/dashboard');
+        return redirect('/')->intended('/dashboard');
     }
     return back()->withErrors(['email' => 'These credentials do not match our records.']);
 });
@@ -43,11 +44,30 @@ Route::post('/logout', function (Request $request) {
     Auth::logout();
     $request->session()->invalidate();
     $request->session()->regenerateToken();
-    return redirect('/login');
+    return redirect()->route('home');
 })->name('logout');
 
 /* ALL AUTHENTICATED ROUTES */
 Route::middleware('auth')->group(function () {
+
+Route::delete('/profile', function (Request $request) {
+    $request->validate(['password' => ['required']]);
+    $user = Auth::user();
+    if (! \Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+        return back()->withErrors(['password' => 'The provided password is incorrect.']);
+    }
+    Auth::logout();
+    $user->delete();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+    return redirect()->route('home');
+})->name('profile.destroy');
+
+Route::get('/settings/security', function () {
+    return inertia('settings/security', [
+        'canManageTwoFactor' => \Laravel\Fortify\Features::enabled(\Laravel\Fortify\Features::twoFactorAuthentication()),
+    ]);
+})->name('security.edit');
 
     /* DASHBOARD */
     Route::get('/dashboard', function () {
@@ -171,7 +191,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/requests/{id}/approve', function ($id) {
         if (!in_array(Auth::user()->role, ['admin', 'manager'])) return redirect('/requests');
         $req = \App\Models\AssetRequest::with(['asset', 'user'])->findOrFail($id);
-        if ($req->status !== 'pending') return back();
+        if ($req->status !== 'pending') return redirect()->route('profile.edit');
         $req->asset->update(['status' => 'assigned', 'user_id' => $req->user_id]);
         $req->update(['status' => 'approved', 'reviewed_by' => Auth::id(), 'reviewed_at' => now()]);
         \App\Models\AssetRequest::where('asset_id', $req->asset_id)->where('id', '!=', $req->id)->where('status', 'pending')
