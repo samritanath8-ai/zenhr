@@ -39,6 +39,8 @@ jobs:
         run: cp .env.example .env
       - name: Generate Application Key
         run: php artisan key:generate
+      - name: Generate Wayfinder Routes
+        run: php artisan wayfinder:generate
       - name: Build Assets
         run: npm run build
       - name: Tests

@@ -1,4 +1,5 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Head } from '@inertiajs/react';
+import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 
 interface ReportCard {
     title: string;
@@ -42,6 +43,7 @@ const REPORTS: ReportCard[] = [
 export default function ReportsIndex() {
     return (
         <AuthenticatedLayout header="Compliance Reports">
+            <Head title="Reports" />
             <style>{`
                 .rp-wrap { max-width: 900px; margin: 0 auto; }
                 .rp-title { font-size:22px; font-weight:700; color:#fff; font-family:'Syne',sans-serif; margin-bottom:8px; }
