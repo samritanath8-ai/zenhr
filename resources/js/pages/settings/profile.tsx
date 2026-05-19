@@ -36,6 +36,7 @@ const STATUS_BG: Record<string, string> = {
     'in-repair': 'rgba(245,200,66,0.1)', retired: 'rgba(255,255,255,0.05)',
 };
 
+const NOW = Date.now();
 export default function Profile() {
     const { auth, assignedAssets } = usePage<PageProps>().props;
 
@@ -148,7 +149,7 @@ export default function Profile() {
                                 let warrantyEl: React.ReactNode = null;
                                 if (asset.warranty_expiry) {
                                     const expiry = new Date(asset.warranty_expiry);
-                                    const daysLeft = Math.ceil((expiry.getTime() - now) / 86400000);
+                                    const daysLeft = Math.ceil((expiry.getTime() - NOW) / 86400000);
                                     if (daysLeft < 0) {
                                         warrantyEl = <div className="warranty-expired">Warranty expired {expiry.toLocaleDateString()}</div>;
                                     } else if (daysLeft <= 30) {
