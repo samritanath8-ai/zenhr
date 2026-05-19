@@ -1,5 +1,8 @@
 <?php
 
+$content = <<<'EOT'
+<?php
+
 namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
@@ -74,3 +77,7 @@ class FortifyServiceProvider extends ServiceProvider
         });
     }
 }
+EOT;
+
+file_put_contents('app/Providers/FortifyServiceProvider.php', $content);
+echo "Done! FortifyServiceProvider written successfully.\n";

@@ -47,7 +47,8 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function Dashboard() {
-    const { auth, totalUsers } = usePage().props as any;
+    const { auth, totalUsers, totalAssets, assignedAssets, availableAssets, inRepairAssets, expiringAssets } = usePage().props as any;
+    const role = auth?.user?.role;
 
     const [metrics,     setMetrics]     = useState<Metrics | null>(null);
     const [activity,    setActivity]    = useState<ActivityDay[] | null>(null);
@@ -90,6 +91,27 @@ export default function Dashboard() {
         { label: 'Requests Today',  value: loading ? '…' : (metrics?.requests_today  ?? '-'), icon: '📈' },
     ];
 
+    const assetStats = [
+        { label: 'Total Assets',  value: totalAssets,     color: '#f5c842', bg: 'rgba(245,200,66,0.1)' },
+        { label: 'Assigned',      value: assignedAssets,  color: '#6ab4ff', bg: 'rgba(100,180,255,0.1)' },
+        { label: 'Available',     value: availableAssets, color: '#64dc8c', bg: 'rgba(100,220,140,0.1)' },
+        { label: 'In Repair',     value: inRepairAssets,  color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
+        { label: 'Expiring Soon', value: expiringAssets,  color: '#ff6b6b', bg: 'rgba(255,107,107,0.1)' },
+    ];
+
+    const quickActions = [
+        ...((['admin', 'manager'].includes(role)) ? [
+            { href: '/users/create', icon: '+',  bg: 'rgba(245,200,66,0.12)',  title: 'Add user',     sub: 'Create a new account' },
+            { href: '/users',        icon: '👥', bg: 'rgba(100,120,255,0.12)', title: 'Manage users', sub: 'View all registered users' },
+            { href: '/assets/create',icon: '📦', bg: 'rgba(100,220,140,0.12)', title: 'Add asset',    sub: 'Register a new asset' },
+            { href: '/assets',       icon: '🗂', bg: 'rgba(100,180,255,0.12)', title: 'View assets',  sub: 'Browse all assets' },
+        ] : []),
+        { href: '/profile', icon: '⚙', bg: 'rgba(255,100,100,0.1)', title: 'Settings', sub: 'Profile & preferences' },
+        ...(expiringAssets > 0 && ['admin', 'manager'].includes(role) ? [
+            { href: '/assets?status=assigned', icon: '⚠', bg: 'rgba(255,107,107,0.12)', title: `${expiringAssets} expiring`, sub: 'Warranties expiring soon' },
+        ] : []),
+    ];
+
     return (
         <AuthenticatedLayout header="Dashboard">
             <Head title="Dashboard" />
@@ -108,6 +130,7 @@ export default function Dashboard() {
                 .fade-up-3 { animation: fadeUp 0.5s 0.2s ease both; }
                 .live-bar  { transition: height 0.6s ease; border-radius: 5px 5px 0 0; width: 100%; }
                 .user-row:hover { background: rgba(255,255,255,0.04); border-radius: 10px; }
+                .alert-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-radius: 12px; background: rgba(255,107,107,0.06); border: 1px solid rgba(255,107,107,0.2); margin-bottom: 20px; }
             `}</style>
 
             <div style={{ color: '#fff' }}>
@@ -126,6 +149,20 @@ export default function Dashboard() {
                     )}
                 </div>
 
+                {/* Expiring warranty alert */}
+                {expiringAssets > 0 && ['admin', 'manager'].includes(role) && (
+                    <div className="alert-banner fade-up">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            <span style={{ fontSize: 14, fontWeight: 600, color: '#ff6b6b' }}>
+                                {expiringAssets} asset{expiringAssets !== 1 ? 's' : ''} with warranty expiring within 30 days
+                            </span>
+                        </div>
+                        <a href="/assets" style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', whiteSpace: 'nowrap' }}>View assets →</a>
+                    </div>
+                )}
+
+                {/* User stats */}
                 <div className="fade-up-1" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                     {stats.map((s, i) => (
                         <div key={i} className="stat-card">
@@ -140,6 +177,24 @@ export default function Dashboard() {
                         </div>
                     ))}
                 </div>
+
+                {/* Asset stats */}
+                {['admin', 'manager'].includes(role) && (
+                    <div className="fade-up-1" style={{ marginBottom: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Asset Overview</span>
+                            <a href="/assets" style={{ fontSize: '13px', color: '#f5c842', textDecoration: 'none', fontWeight: 500 }}>View all →</a>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
+                            {assetStats.map((s, i) => (
+                                <div key={i} className="stat-card" style={{ padding: '18px' }}>
+                                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', fontWeight: 500, marginBottom: '12px' }}>{s.label}</div>
+                                    <div style={{ fontSize: '28px', fontWeight: 700, color: s.color }}>{s.value ?? 0}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div className="fade-up-2" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '20px', marginBottom: '20px' }}>
                     <div className="panel">
@@ -185,12 +240,8 @@ export default function Dashboard() {
                     <div className="panel">
                         <div style={{ fontWeight: 600, fontSize: '15px', marginBottom: '20px' }}>Quick actions</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {[
-                                { href: '/users/create', icon: '+',  bg: 'rgba(245,200,66,0.12)',  title: 'Add user',     sub: 'Create a new account' },
-                                { href: '/users',        icon: '👥', bg: 'rgba(100,120,255,0.12)', title: 'Manage users', sub: 'View all registered users' },
-                                { href: '/profile',      icon: '⚙',  bg: 'rgba(255,100,100,0.1)', title: 'Settings',     sub: 'Profile & preferences' },
-                            ].map(item => (
-                                <a key={item.href} href={item.href} className="quick-link">
+                            {quickActions.map(item => (
+                                <a key={item.href + item.title} href={item.href} className="quick-link">
                                     <span style={{ width: '34px', height: '34px', borderRadius: '8px', background: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}>{item.icon}</span>
                                     <div>
                                         <div style={{ fontSize: '14px', fontWeight: 500 }}>{item.title}</div>
@@ -203,7 +254,6 @@ export default function Dashboard() {
                 </div>
 
                 <div className="fade-up-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-
                     <div className="panel">
                         <div style={{ fontWeight: 600, fontSize: '15px', marginBottom: '20px' }}>Recent users</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -270,7 +320,6 @@ export default function Dashboard() {
                             </div>
                         )}
                     </div>
-
                 </div>
             </div>
         </AuthenticatedLayout>

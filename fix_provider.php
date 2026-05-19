@@ -1,5 +1,8 @@
 <?php
 
+$content = <<<'EOT'
+<?php
+
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
@@ -32,3 +35,7 @@ class AppServiceProvider extends ServiceProvider
         );
     }
 }
+EOT;
+
+file_put_contents('app/Providers/AppServiceProvider.php', $content);
+echo "Done! File written successfully.\n";

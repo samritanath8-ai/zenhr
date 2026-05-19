@@ -17,6 +17,7 @@ interface PageProps {
         user: {
             name: string;
             email: string;
+            role: string;
         };
     };
     [key: string]: unknown;
@@ -44,6 +45,15 @@ const NAV: NavItem[] = [
             </svg>
         ),
     },
+    {
+        label: 'Devices',
+        href: '/devices',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/>
+            </svg>
+        ),
+    },
 ];
 
 export default function AuthenticatedLayout({ header, children }: AuthenticatedLayoutProps) {
@@ -51,6 +61,7 @@ export default function AuthenticatedLayout({ header, children }: AuthenticatedL
     const [collapsed, setCollapsed] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const currentPath = window.location.pathname;
+    const role = auth?.user?.role;
 
     const initials = auth?.user?.name?.charAt(0)?.toUpperCase() ?? 'U';
 
@@ -86,7 +97,7 @@ export default function AuthenticatedLayout({ header, children }: AuthenticatedL
                 .user-info { text-align: left; overflow: hidden; transition: opacity 0.2s; }
                 .user-info.hidden { opacity: 0; }
                 .user-name { font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                .user-role { font-size: 11px; color: rgba(255,255,255,0.35); }
+                .user-role { font-size: 11px; color: rgba(255,255,255,0.35); text-transform: capitalize; }
                 .user-dropdown { position: absolute; bottom: 70px; left: 10px; right: 10px; background: #1a1f2e; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 6px; box-shadow: 0 16px 40px rgba(0,0,0,0.5); animation: fadeUp 0.15s ease; z-index: 100; }
                 @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
                 .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.6); text-decoration: none; cursor: pointer; transition: all 0.12s; background: none; border: none; width: 100%; text-align: left; font-family: 'DM Sans', sans-serif; }
@@ -128,16 +139,115 @@ export default function AuthenticatedLayout({ header, children }: AuthenticatedL
 
                     <nav className="sidebar-nav">
                         <div className={`nav-section-label ${collapsed ? 'hidden' : ''}`}>Main</div>
-                        {NAV.map(item => (
+
+                        <Link
+                            href="/dashboard"
+                            className={`nav-link ${currentPath === '/dashboard' ? 'active' : ''}`}
+                        >
+                            <span className="nav-icon">{NAV[0].icon}</span>
+                            <span className={`nav-label ${collapsed ? 'hidden' : ''}`}>Dashboard</span>
+                        </Link>
+
+                        {['admin', 'manager'].includes(role) && (
                             <Link
-                                key={item.label}
-                                href={item.href}
-                                className={`nav-link ${currentPath === item.href ? 'active' : ''}`}
+                                href="/users"
+                                className={`nav-link ${currentPath === '/users' ? 'active' : ''}`}
                             >
-                                <span className="nav-icon">{item.icon}</span>
-                                <span className={`nav-label ${collapsed ? 'hidden' : ''}`}>{item.label}</span>
+                                <span className="nav-icon">{NAV[1].icon}</span>
+                                <span className={`nav-label ${collapsed ? 'hidden' : ''}`}>Users</span>
                             </Link>
-                        ))}
+                        )}
+
+                        {['admin', 'manager'].includes(role) && (
+                            <Link
+                                href="/assets"
+                                className={`nav-link ${currentPath === '/assets' ? 'active' : ''}`}
+                            >
+                                <span className="nav-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="2" y="7" width="20" height="14" rx="2"/>
+                                        <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
+                                        <line x1="12" y1="12" x2="12" y2="16"/>
+                                        <line x1="10" y1="14" x2="14" y2="14"/>
+                                    </svg>
+                                </span>
+                                <span className={`nav-label ${collapsed ? 'hidden' : ''}`}>Assets</span>
+                            </Link>
+                        )}
+
+                        {/* FIX: Depreciation moved OUT of Requests link — was previously nested inside it */}
+                        {['admin', 'manager'].includes(role) && (
+                            <Link
+                                href="/depreciation"
+                                className={`nav-link ${currentPath === '/depreciation' ? 'active' : ''}`}
+                            >
+                                <span className="nav-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="12" y1="2" x2="12" y2="22"/>
+                                        <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                                    </svg>
+                                </span>
+                                <span className={`nav-label ${collapsed ? 'hidden' : ''}`}>Depreciation</span>
+                            </Link>
+                        )}
+
+                        <Link
+                            href="/requests"
+                            className={`nav-link ${currentPath === '/requests' ? 'active' : ''}`}
+                        >
+                            <span className="nav-icon">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                                    <rect x="9" y="3" width="6" height="4" rx="1"/>
+                                    <line x1="9" y1="12" x2="15" y2="12"/>
+                                    <line x1="9" y1="16" x2="13" y2="16"/>
+                                </svg>
+                            </span>
+                            <span className={`nav-label ${collapsed ? 'hidden' : ''}`}>Requests</span>
+                        </Link>
+
+                        {['admin', 'manager'].includes(role) && (
+                            <Link
+                                href="/transfers"
+                                className={`nav-link ${currentPath === '/transfers' ? 'active' : ''}`}
+                            >
+                                <span className="nav-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="17 1 21 5 17 9"/>
+                                        <path d="M3 11V9a4 4 0 014-4h14"/>
+                                        <polyline points="7 23 3 19 7 15"/>
+                                        <path d="M21 13v2a4 4 0 01-4 4H3"/>
+                                    </svg>
+                                </span>
+                                <span className={`nav-label ${collapsed ? 'hidden' : ''}`}>Transfers</span>
+                            </Link>
+                        )}
+
+                        {['admin', 'manager'].includes(role) && (
+                            <Link
+                                href="/reports"
+                                className={`nav-link ${currentPath === '/reports' ? 'active' : ''}`}
+                            >
+                                <span className="nav-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                                        <polyline points="14 2 14 8 20 8"/>
+                                        <line x1="16" y1="13" x2="8" y2="13"/>
+                                        <line x1="16" y1="17" x2="8" y2="17"/>
+                                        <polyline points="10 9 9 9 8 9"/>
+                                    </svg>
+                                </span>
+                                <span className={`nav-label ${collapsed ? 'hidden' : ''}`}>Reports</span>
+                            </Link>
+                        )}
+                        <div className={`nav-section-label ${collapsed ? 'hidden' : ''}`} style={{ marginTop: 16 }}>Devices</div>
+                        <Link
+                            href="/devices"
+                            className={`nav-link ${currentPath === '/devices' ? 'active' : ''}`}
+                        >
+                            <span className="nav-icon">{NAV[2].icon}</span>
+                            <span className={`nav-label ${collapsed ? 'hidden' : ''}`}>All Devices</span>
+                        </Link>
                     </nav>
 
                     {/* User */}
@@ -147,6 +257,10 @@ export default function AuthenticatedLayout({ header, children }: AuthenticatedL
                                 <Link href="/profile" className="dropdown-item">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                                     Profile
+                                </Link>
+                                <Link href="/profile/notifications" className="dropdown-item">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                                    Notifications
                                 </Link>
                                 <div className="dropdown-divider" />
                                 <Link href={route('logout')} method="post" as="button" className="dropdown-item danger">
@@ -159,7 +273,7 @@ export default function AuthenticatedLayout({ header, children }: AuthenticatedL
                             <div className="avatar">{initials}</div>
                             <div className={`user-info ${collapsed ? 'hidden' : ''}`}>
                                 <div className="user-name">{auth?.user?.name ?? 'User'}</div>
-                                <div className="user-role">Administrator</div>
+                                <div className="user-role">{role ?? 'user'}</div>
                             </div>
                         </button>
                     </div>
