@@ -1,5 +1,5 @@
-import { FormEventHandler } from 'react';
-import { Head, useForm, usePage, Link } from '@inertiajs/react';
+import { FormEventHandler, useMemo } from 'react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 
 interface Asset {
@@ -51,7 +51,7 @@ export default function Profile() {
         e.preventDefault();
         patch('/profile');
     };
-
+    const now = useMemo(() => Date.now(), []);
     return (
         <AuthenticatedLayout header="Profile">
             <Head title="Profile" />
@@ -148,7 +148,7 @@ export default function Profile() {
                                 let warrantyEl: React.ReactNode = null;
                                 if (asset.warranty_expiry) {
                                     const expiry = new Date(asset.warranty_expiry);
-                                    const daysLeft = Math.ceil((expiry.getTime() - Date.now()) / 86400000);
+                                    const daysLeft = Math.ceil((expiry.getTime() - now) / 86400000);
                                     if (daysLeft < 0) {
                                         warrantyEl = <div className="warranty-expired">Warranty expired {expiry.toLocaleDateString()}</div>;
                                     } else if (daysLeft <= 30) {

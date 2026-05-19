@@ -72,8 +72,8 @@ export default function DepreciationIndex({ depreciations, assets }: Props) {
         salvage_value: '',
     });
 
-    const selectedAsset = useMemo(() => assets.find(a => String(a.id) === data.asset_id), [assets, data.asset_id]);
-
+    
+    const _selectedAsset = useMemo(() => assets.find(a => String(a.id) === data.asset_id), [assets, data.asset_id]);
     const submit = () => {
         post('/depreciation', { onSuccess: () => { reset(); setShowForm(false); } });
     };
