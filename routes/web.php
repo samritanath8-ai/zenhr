@@ -73,12 +73,20 @@ Route::delete('/profile', function (Request $request) {
     return redirect()->route('home');
 })->name('profile.destroy');
 
-Route::get('/settings/security', function () {
+Route::get('/settings/security', function (Request $request) {
+    $canManage = \Laravel\Fortify\Features::enabled(\Laravel\Fortify\Features::twoFactorAuthentication());
+    $needsConfirm = $canManage && config('fortify.confirmPassword', true);
+
+    if ($needsConfirm && ! $request->session()->get('auth.password_confirmed_at')) {
+        return redirect()->route('password.confirm');
+    }
+
     return inertia('settings/security', [
-        'canManageTwoFactor' => \Laravel\Fortify\Features::enabled(\Laravel\Fortify\Features::twoFactorAuthentication()),
-        'twoFactorEnabled' => Auth::user()->two_factor_secret !== null,
+        'canManageTwoFactor' => $canManage,
+        'twoFactorEnabled' => $canManage ? Auth::user()->two_factor_secret !== null : null,
+        'requiresConfirmation' => $needsConfirm,
     ]);
-})->middleware('password.confirm')->name('security.edit');
+})->name('security.edit');
 
     /* DASHBOARD */
     Route::get('/dashboard', function () {
