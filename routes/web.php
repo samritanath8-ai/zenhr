@@ -8,7 +8,7 @@ use Illuminate\Validation\Rules\Password;
 use App\Models\User;
 
 /* HOME */
-Route::get('/', fn() => redirect('/login'));
+Route::get('/', fn() => redirect('/login'))->name('home');
 
 /* LOGIN */
 Route::get('/login', fn() => inertia('auth/login'))->name('login');
