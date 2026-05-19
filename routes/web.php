@@ -48,6 +48,18 @@ Route::post('/logout', function (Request $request) {
 /* ALL AUTHENTICATED ROUTES */
 Route::middleware('auth')->group(function () {
 
+Route::put('/user/password', function (Request $request) {
+    $request->validate([
+        'current_password' => ['required'],
+        'password' => ['required', 'confirmed', Password::min(8)],
+    ]);
+    if (! Hash::check($request->current_password, Auth::user()->password)) {
+        return back()->withErrors(['current_password' => 'The provided password is incorrect.']);
+    }
+    Auth::user()->update(['password' => Hash::make($request->password)]);
+    return redirect()->route('security.edit');
+})->name('user-password.update');
+
 Route::delete('/profile', function (Request $request) {
     $request->validate(['password' => ['required']]);
     $user = Auth::user();
@@ -64,8 +76,9 @@ Route::delete('/profile', function (Request $request) {
 Route::get('/settings/security', function () {
     return inertia('settings/security', [
         'canManageTwoFactor' => \Laravel\Fortify\Features::enabled(\Laravel\Fortify\Features::twoFactorAuthentication()),
+        'twoFactorEnabled' => Auth::user()->two_factor_secret !== null,
     ]);
-})->name('security.edit');
+})->middleware('password.confirm')->name('security.edit');
 
     /* DASHBOARD */
     Route::get('/dashboard', function () {
@@ -201,7 +214,7 @@ Route::get('/settings/security', function () {
     Route::patch('/requests/{id}/reject', function (Request $request, $id) {
         if (!in_array(Auth::user()->role, ['admin', 'manager'])) return redirect('/requests');
         $req = \App\Models\AssetRequest::with(['asset', 'user'])->findOrFail($id);
-        if ($req->status !== 'pending') return back();
+        if ($req->status !== 'pending') return redirect()->route('profile.edit');
         $request->validate(['rejection_reason' => ['nullable', 'string', 'max:500']]);
         $req->update(['status' => 'rejected', 'rejection_reason' => $request->rejection_reason, 'reviewed_by' => Auth::id(), 'reviewed_at' => now()]);
         $req->user->notify(new \App\Notifications\AssetRequestReviewed($req));
