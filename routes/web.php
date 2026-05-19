@@ -75,7 +75,7 @@ Route::delete('/profile', function (Request $request) {
 
 Route::get('/settings/security', function (Request $request) {
     $canManage = \Laravel\Fortify\Features::enabled(\Laravel\Fortify\Features::twoFactorAuthentication());
-    $needsConfirm = $canManage && config('fortify.features.two-factor-authentication.confirm-password', true);
+    $needsConfirm = $canManage && \Laravel\Fortify\Features::optionEnabled(\Laravel\Fortify\Features::twoFactorAuthentication(), 'confirmPassword');
 
     if ($needsConfirm && ! $request->session()->get('auth.password_confirmed_at')) {
         return redirect()->route('password.confirm');
