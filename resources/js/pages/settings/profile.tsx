@@ -1,5 +1,5 @@
-import { FormEventHandler } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
+import type { FormEventHandler } from 'react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 
 interface Asset {
@@ -53,6 +53,7 @@ export default function Profile() {
         e.preventDefault();
         patch('/profile');
     };
+
     return (
         <AuthenticatedLayout header="Profile">
             <Head title="Profile" />
@@ -147,9 +148,11 @@ export default function Profile() {
                                 const icon = typeIcon[asset.type?.toLowerCase()] ?? '📦';
 
                                 let warrantyEl: React.ReactNode = null;
+
                                 if (asset.warranty_expiry) {
                                     const expiry = new Date(asset.warranty_expiry);
                                     const daysLeft = Math.ceil((expiry.getTime() - NOW) / 86400000);
+
                                     if (daysLeft < 0) {
                                         warrantyEl = <div className="warranty-expired">Warranty expired {expiry.toLocaleDateString()}</div>;
                                     } else if (daysLeft <= 30) {

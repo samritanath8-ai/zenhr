@@ -1,5 +1,6 @@
-import { useState, ReactNode } from 'react';
 import { Link, usePage } from '@inertiajs/react';
+import type { ReactNode } from 'react';
+import { useState } from 'react';
 
 interface NavItem {
     label: string;

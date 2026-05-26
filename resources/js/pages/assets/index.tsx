@@ -1,6 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 import { useState, useMemo } from 'react';
+import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 
 interface Asset {
     id: number;
@@ -41,6 +41,7 @@ const TABS = [
 export default function AssetsIndex({ assets, status }: Props) {
     const { auth } = usePage<PageProps>().props;
     const role = auth.user.role;
+    const isAdmin = role === 'admin';
 
     const [search, setSearch] = useState('');
     const [filterType, setFilterType] = useState('');
@@ -57,6 +58,7 @@ export default function AssetsIndex({ assets, status }: Props) {
         const matchType = !filterType || a.type === filterType;
         const matchDept = !filterDept || a.department === filterDept;
         const matchLoc  = !filterLocation || a.location === filterLocation;
+
         return matchSearch && matchType && matchDept && matchLoc;
     }), [assets, search, filterType, filterDept, filterLocation]);
 
@@ -96,7 +98,8 @@ export default function AssetsIndex({ assets, status }: Props) {
                             {hasFilters ? `${filtered.length} of ${assets.length}` : assets.length} asset{assets.length !== 1 ? 's' : ''}{status ? ` · ${status}` : ' total'}
                         </p>
                     </div>
-                    {['admin', 'manager'].includes(role) && (
+                    {/* Only admin can create assets */}
+                    {isAdmin && (
                         <Link href="/assets/create" className="btn-add">+ Add asset</Link>
                     )}
                 </div>
@@ -144,7 +147,9 @@ export default function AssetsIndex({ assets, status }: Props) {
                         </select>
                     )}
                     {hasFilters && (
-                        <button className="clear-btn" onClick={() => { setSearch(''); setFilterType(''); setFilterDept(''); setFilterLocation(''); }}>
+                        <button className="clear-btn" onClick={() => {
+                            setSearch(''); setFilterType(''); setFilterDept(''); setFilterLocation('');
+                        }}>
                             Clear filters
                         </button>
                     )}
@@ -154,7 +159,7 @@ export default function AssetsIndex({ assets, status }: Props) {
                     {filtered.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.3)' }}>
                             {hasFilters ? 'No assets match your filters.' : 'No assets found.'}{' '}
-                            {!hasFilters && ['admin', 'manager'].includes(role) && (
+                            {!hasFilters && isAdmin && (
                                 <Link href="/assets/create" style={{ color: '#f5c842' }}>Add one</Link>
                             )}
                         </div>
@@ -173,7 +178,7 @@ export default function AssetsIndex({ assets, status }: Props) {
                                     <th>Status</th>
                                     <th>Assigned To</th>
                                     <th>Notes</th>
-                                    {['admin', 'manager'].includes(role) && <th></th>}
+                                    {isAdmin && <th></th>}
                                 </tr>
                             </thead>
                             <tbody>
@@ -216,7 +221,8 @@ export default function AssetsIndex({ assets, status }: Props) {
                                         <td style={{ maxWidth: 200, color: 'rgba(255,255,255,0.4)', fontSize: 12, whiteSpace: 'normal', lineHeight: 1.5 }}>
                                             {asset.notes ?? '—'}
                                         </td>
-                                        {['admin', 'manager'].includes(role) && (
+                                        {/* Edit column: admin only */}
+                                        {isAdmin && (
                                             <td>
                                                 <Link href={route('assets.edit', asset.id)} style={{ fontSize: 13, color: '#f5c842', textDecoration: 'none' }}>Edit</Link>
                                             </td>

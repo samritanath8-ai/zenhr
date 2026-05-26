@@ -1,7 +1,7 @@
-import React from 'react';
 import { Head, usePage, useForm, router } from '@inertiajs/react';
-import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
+import React from 'react';
 import { useState } from 'react';
+import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 
 interface Asset { id: number; name: string; asset_number: string; type: string; }
 interface User  { id: number; name: string; email: string; }
@@ -45,7 +45,9 @@ export default function RequestsIndex({ requests, availableAssets }: Props) {
 
     const reject = (id: number) => {
         router.patch(`/requests/${id}/reject`, { rejection_reason: rejectionReason }, {
-            onSuccess: () => { setRejectingId(null); setRejectionReason(''); },
+            onSuccess: () => {
+ setRejectingId(null); setRejectionReason(''); 
+},
         });
     };
 
@@ -144,7 +146,9 @@ export default function RequestsIndex({ requests, availableAssets }: Props) {
                                 {isAdmin && rejectingId !== req.id && (
                                     <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                                         <button className="btn btn-approve" onClick={() => approve(req.id)}>Approve</button>
-                                        <button className="btn btn-reject"  onClick={() => { setRejectingId(req.id); setRejectionReason(''); }}>Reject</button>
+                                        <button className="btn btn-reject"  onClick={() => {
+ setRejectingId(req.id); setRejectionReason(''); 
+}}>Reject</button>
                                     </div>
                                 )}
                             </div>

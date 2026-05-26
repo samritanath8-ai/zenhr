@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { useForm, usePage, router } from '@inertiajs/react';
+import { useState } from 'react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 
 interface User { id: number; name: string; email: string; }
@@ -42,19 +42,30 @@ export default function TransfersIndex({ transfers, assets, users }: Props) {
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        form.post('/transfers', { onSuccess: () => { form.reset(); setShowForm(false); } });
+        form.post('/transfers', { onSuccess: () => {
+ form.reset(); setShowForm(false); 
+} });
     }
 
     function approve(id: number) {
-        if (!confirm('Approve this transfer?')) return;
+        if (!confirm('Approve this transfer?')) {
+return;
+}
+
         router.patch(`/transfers/${id}/approve`);
     }
 
     function reject(e: React.FormEvent) {
         e.preventDefault();
-        if (!rejectId) return;
+
+        if (!rejectId) {
+return;
+}
+
         rejectForm.patch(`/transfers/${rejectId}/reject`, {
-            onSuccess: () => { rejectForm.reset(); setRejectId(null); },
+            onSuccess: () => {
+ rejectForm.reset(); setRejectId(null); 
+},
         });
     }
 

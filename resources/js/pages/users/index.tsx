@@ -1,6 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 import { useState } from 'react';
+import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 
 interface Device {
     id: number;
@@ -29,6 +29,9 @@ interface PageProps {
 }
 
 export default function Index({ users }: Props) {
+    const { auth } = usePage<PageProps>().props;
+    const isAdmin = auth.user.role === 'admin';
+
     const [search, setSearch] = useState('');
 
     const filtered = users.data.filter(user =>
@@ -85,7 +88,8 @@ export default function Index({ users }: Props) {
                                 <button className="clear-btn" onClick={() => setSearch('')}>×</button>
                             )}
                         </div>
-                        {(usePage<PageProps>().props.auth.user.role === 'admin') && (
+                        {/* Add user: admin only */}
+                        {isAdmin && (
                             <Link href={route('users.create')} className="btn-add">
                                 + Add user
                             </Link>
@@ -98,7 +102,7 @@ export default function Index({ users }: Props) {
                         <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.3)' }}>
                             {search
                                 ? <>No users match "<span style={{ color: '#f5c842' }}>{search}</span>"</>
-                                : <>No users yet. <Link href={route('users.create')} style={{ color: '#f5c842' }}>Add one</Link></>
+                                : isAdmin ? <>No users yet. <Link href={route('users.create')} style={{ color: '#f5c842' }}>Add one</Link></> : <>No users found.</>
                             }
                         </div>
                     ) : (
@@ -110,7 +114,8 @@ export default function Index({ users }: Props) {
                                     <th>Role</th>
                                     <th>Joined</th>
                                     <th>Devices</th>
-                                    <th></th>
+                                    {/* Edit column header: admin only */}
+                                    {isAdmin && <th></th>}
                                 </tr>
                             </thead>
                             <tbody>
@@ -120,47 +125,50 @@ export default function Index({ users }: Props) {
                                         <td style={{ color: 'rgba(255,255,255,0.5)' }}>{user.email}</td>
                                         <td><span className="badge">{user.role || 'employee'}</span></td>
                                         <td style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>
-    {new Date(user.created_at).toLocaleDateString()}
-</td>
-<td>
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {user.devices && user.devices.length > 0
-            ? user.devices.map(device => (
-                <span key={device.id} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '3px 8px', borderRadius: 100, fontSize: 11, fontWeight: 500,
-                    background: device.type === 'mac' ? 'rgba(100,180,255,0.12)' :
-                                device.type === 'ios' ? 'rgba(120,200,120,0.12)' :
-                                device.type === 'android' ? 'rgba(100,220,140,0.12)' :
-                                'rgba(100,140,255,0.12)',
-                    color: device.type === 'mac' ? '#6ab4ff' :
-                           device.type === 'ios' ? '#78c878' :
-                           device.type === 'android' ? '#64dc8c' :
-                           '#648cff',
-                    border: '1px solid currentColor',
-                    opacity: 0.85,
-                }}>
-                    { device.type === 'mac' ? (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-                    ) : device.type === 'ios' ? (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
-                    ) : device.type === 'android' ? (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 16a7 7 0 0114 0"/><line x1="12" y1="16" x2="12" y2="21"/><circle cx="8" cy="16" r=".5"/><circle cx="16" cy="16" r=".5"/></svg>
-                    ) : (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
-                    ) }
-                    {device.type}
-                </span>
-            ))
-            : <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>No devices</span>
-        }
-    </div>
-</td>
-                                        <td>
-                                            <Link href={route('users.edit', user.id)} style={{ fontSize: '13px', color: '#f5c842', textDecoration: 'none' }}>
-                                                Edit
-                                            </Link>
+                                            {new Date(user.created_at).toLocaleDateString()}
                                         </td>
+                                        <td>
+                                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                                {user.devices && user.devices.length > 0
+                                                    ? user.devices.map(device => (
+                                                        <span key={device.id} style={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                            padding: '3px 8px', borderRadius: 100, fontSize: 11, fontWeight: 500,
+                                                            background: device.type === 'mac' ? 'rgba(100,180,255,0.12)' :
+                                                                        device.type === 'ios' ? 'rgba(120,200,120,0.12)' :
+                                                                        device.type === 'android' ? 'rgba(100,220,140,0.12)' :
+                                                                        'rgba(100,140,255,0.12)',
+                                                            color: device.type === 'mac' ? '#6ab4ff' :
+                                                                   device.type === 'ios' ? '#78c878' :
+                                                                   device.type === 'android' ? '#64dc8c' :
+                                                                   '#648cff',
+                                                            border: '1px solid currentColor',
+                                                            opacity: 0.85,
+                                                        }}>
+                                                            {device.type === 'mac' ? (
+                                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                                                            ) : device.type === 'ios' ? (
+                                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+                                                            ) : device.type === 'android' ? (
+                                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 16a7 7 0 0114 0"/><line x1="12" y1="16" x2="12" y2="21"/><circle cx="8" cy="16" r=".5"/><circle cx="16" cy="16" r=".5"/></svg>
+                                                            ) : (
+                                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+                                                            )}
+                                                            {device.type}
+                                                        </span>
+                                                    ))
+                                                    : <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>No devices</span>
+                                                }
+                                            </div>
+                                        </td>
+                                        {/* Edit link: admin only */}
+                                        {isAdmin && (
+                                            <td>
+                                                <Link href={route('users.edit', user.id)} style={{ fontSize: '13px', color: '#f5c842', textDecoration: 'none' }}>
+                                                    Edit
+                                                </Link>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>

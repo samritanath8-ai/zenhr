@@ -1,93 +1,65 @@
-import { Form, Head } from '@inertiajs/react';
-import InputError from '@/components/input-error';
-import PasswordInput from '@/components/password-input';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
-import { update } from '@/routes/password';
+import { Head, useForm } from '@inertiajs/react';
+import type { FormEventHandler } from 'react';
+import './login.css';
 
-type Props = {
-    token: string;
-    email: string;
-};
+export default function ResetPassword({ token, email }: { token: string; email?: string }) {
+    const { data, setData, post, processing, errors } = useForm({
+        token,
+        email: email ?? '',
+        password: '',
+        password_confirmation: '',
+    });
 
-export default function ResetPassword({ token, email }: Props) {
+    const submit: FormEventHandler = (e) => {
+        e.preventDefault();
+        post(route('password.update'));
+    };
+
     return (
         <>
-            <Head title="Reset password" />
-
-            <Form
-                {...update.form()}
-                transform={(data) => ({ ...data, token, email })}
-                resetOnSuccess={['password', 'password_confirmation']}
-            >
-                {({ processing, errors }) => (
-                    <div className="grid gap-6">
-                        <div className="grid gap-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                name="email"
-                                autoComplete="email"
-                                value={email}
-                                className="mt-1 block w-full"
-                                readOnly
-                            />
-                            <InputError
-                                message={errors.email}
-                                className="mt-2"
-                            />
+            <Head title="Reset Password — ZenHR" />
+            <div className="login-root">
+                <div className="blob blob-1" />
+                <div className="blob blob-2" />
+                <div className="blob blob-3" />
+                <div className="login-wrap">
+                    <div className="logo-area">
+                        <div className="logo-icon">
+                            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+                                <rect x="2" y="2" width="9" height="9" rx="2.5" fill="#080b14"/>
+                                <rect x="15" y="2" width="9" height="9" rx="2.5" fill="#080b14"/>
+                                <rect x="2" y="15" width="9" height="9" rx="2.5" fill="#080b14"/>
+                                <rect x="15" y="15" width="9" height="9" rx="2.5" fill="#080b14"/>
+                            </svg>
                         </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="password">Password</Label>
-                            <PasswordInput
-                                id="password"
-                                name="password"
-                                autoComplete="new-password"
-                                className="mt-1 block w-full"
-                                autoFocus
-                                placeholder="Password"
-                            />
-                            <InputError message={errors.password} />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="password_confirmation">
-                                Confirm password
-                            </Label>
-                            <PasswordInput
-                                id="password_confirmation"
-                                name="password_confirmation"
-                                autoComplete="new-password"
-                                className="mt-1 block w-full"
-                                placeholder="Confirm password"
-                            />
-                            <InputError
-                                message={errors.password_confirmation}
-                                className="mt-2"
-                            />
-                        </div>
-
-                        <Button
-                            type="submit"
-                            className="mt-4 w-full"
-                            disabled={processing}
-                            data-test="reset-password-button"
-                        >
-                            {processing && <Spinner />}
-                            Reset password
-                        </Button>
+                        <div className="logo-name">ZenHR</div>
                     </div>
-                )}
-            </Form>
+                    <div className="card">
+                        <h1 className="card-title">Reset password</h1>
+                        <p className="card-sub">Choose a new password for your account.</p>
+                        <form onSubmit={submit}>
+                            <div className="field">
+                                <label className="field-label">Email address</label>
+                                <input className="field-input" type="email" value={data.email} onChange={e => setData('email', e.target.value)} required />
+                                {errors.email && <p className="field-error">{errors.email}</p>}
+                            </div>
+                            <div className="field">
+                                <label className="field-label">New password</label>
+                                <input className="field-input" type="password" placeholder="••••••••" value={data.password} onChange={e => setData('password', e.target.value)} required />
+                                {errors.password && <p className="field-error">{errors.password}</p>}
+                            </div>
+                            <div className="field">
+                                <label className="field-label">Confirm password</label>
+                                <input className="field-input" type="password" placeholder="••••••••" value={data.password_confirmation} onChange={e => setData('password_confirmation', e.target.value)} required />
+                            </div>
+                            <button className="btn-submit" type="submit" disabled={processing}>
+                                {processing ? 'Resetting…' : 'Reset password'}
+                            </button>
+                        </form>
+                    </div>
+                    <p className="login-footer"><a href="/login">← Back to sign in</a></p>
+                </div>
+            </div>
         </>
     );
 }
-
-ResetPassword.layout = {
-    title: 'Reset password',
-    description: 'Please enter your new password below',
-};

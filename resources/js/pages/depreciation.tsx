@@ -49,9 +49,10 @@ function fmt(n: number) {
 
 export default function DepreciationIndex({ depreciations, assets }: Props) {
     const { auth } = usePage<PageProps>().props;
-    const role = auth.user.role;
-    const [showForm, setShowForm]     = useState(false);
-    const [editingId, setEditingId]   = useState<number | null>(null);
+    const isAdmin = auth.user.role === 'admin';
+
+    const [showForm, setShowForm]   = useState(false);
+    const [editingId, setEditingId] = useState<number | null>(null);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         asset_id: '',
@@ -72,11 +73,8 @@ export default function DepreciationIndex({ depreciations, assets }: Props) {
         salvage_value: '',
     });
 
-    
     const submit = () => {
-        post('/depreciation', { onSuccess: () => {
- reset(); setShowForm(false); 
-} });
+        post('/depreciation', { onSuccess: () => { reset(); setShowForm(false); } });
     };
 
     const startEdit = (d: DepreciationRecord) => {
@@ -93,9 +91,9 @@ export default function DepreciationIndex({ depreciations, assets }: Props) {
         editForm.patch(`/depreciation/${id}`, { onSuccess: () => setEditingId(null) });
     };
 
-    const totalOriginal  = depreciations.reduce((s, d) => s + parseFloat(d.purchase_price), 0);
+    const totalOriginal    = depreciations.reduce((s, d) => s + parseFloat(d.purchase_price), 0);
     const totalAccumulated = depreciations.reduce((s, d) => s + d.accumulated, 0);
-    const totalBookValue = depreciations.reduce((s, d) => s + d.book_value, 0);
+    const totalBookValue   = depreciations.reduce((s, d) => s + d.book_value, 0);
 
     return (
         <AuthenticatedLayout header="Depreciation">
@@ -133,7 +131,8 @@ export default function DepreciationIndex({ depreciations, assets }: Props) {
                         <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4 }}>Depreciation</h2>
                         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Track asset value over time across all depreciation methods.</p>
                     </div>
-                    {assets.length > 0 && (
+                    {/* Add schedule: admin only */}
+                    {isAdmin && assets.length > 0 && (
                         <button className="btn btn-primary" onClick={() => setShowForm(v => !v)}>
                             {showForm ? 'Cancel' : '+ Add schedule'}
                         </button>
@@ -158,8 +157,8 @@ export default function DepreciationIndex({ depreciations, assets }: Props) {
                     </div>
                 )}
 
-                {/* Add form */}
-                {showForm && (
+                {/* Add form: admin only */}
+                {isAdmin && showForm && (
                     <div className="panel" style={{ borderColor: 'rgba(245,200,66,0.15)' }}>
                         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 20 }}>New depreciation schedule</div>
 
@@ -208,7 +207,7 @@ export default function DepreciationIndex({ depreciations, assets }: Props) {
                                 <input className="field-input" type="date" value={data.depreciation_start} onChange={e => setData('depreciation_start', e.target.value)} />
                                 {errors.depreciation_start && <p className="field-error">{errors.depreciation_start}</p>}
                             </div>
-                            {(data.method === 'straight_line') && (
+                            {data.method === 'straight_line' && (
                                 <div>
                                     <label className="field-label">Useful life (years)</label>
                                     <input className="field-input" type="number" min="1" value={data.useful_life_years} onChange={e => setData('useful_life_years', e.target.value)} />
@@ -239,9 +238,7 @@ export default function DepreciationIndex({ depreciations, assets }: Props) {
                             <button className="btn btn-primary" disabled={processing || !data.asset_id || !data.purchase_price} onClick={submit}>
                                 {processing ? 'Saving…' : 'Save schedule'}
                             </button>
-                            <button className="btn btn-ghost" onClick={() => {
- setShowForm(false); reset(); 
-}}>Cancel</button>
+                            <button className="btn btn-ghost" onClick={() => { setShowForm(false); reset(); }}>Cancel</button>
                         </div>
                     </div>
                 )}
@@ -254,7 +251,7 @@ export default function DepreciationIndex({ depreciations, assets }: Props) {
 
                     {depreciations.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.25)', fontSize: 14 }}>
-                            No depreciation schedules yet. Add one above.
+                            No depreciation schedules yet.{isAdmin ? ' Add one above.' : ''}
                         </div>
                     ) : depreciations.map(d => {
                         const depColor = d.percent_used > 80 ? '#ff6b6b' : d.percent_used > 50 ? '#f5c842' : '#64dc8c';
@@ -289,7 +286,6 @@ export default function DepreciationIndex({ depreciations, assets }: Props) {
                                             </span>
                                         </div>
 
-                                        {/* Progress bar */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                             <div className="progress-track" style={{ flex: 1 }}>
                                                 <div className="progress-fill" style={{ width: `${Math.min(d.percent_used, 100)}%`, background: depColor }} />
@@ -298,20 +294,21 @@ export default function DepreciationIndex({ depreciations, assets }: Props) {
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                                        <button className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }} onClick={() => editingId === d.id ? setEditingId(null) : startEdit(d)}>
-                                            {editingId === d.id ? 'Cancel' : 'Edit'}
-                                        </button>
-                                        {role === 'admin' && (
+                                    {/* Edit / Remove: admin only */}
+                                    {isAdmin && (
+                                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                                            <button className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }} onClick={() => editingId === d.id ? setEditingId(null) : startEdit(d)}>
+                                                {editingId === d.id ? 'Cancel' : 'Edit'}
+                                            </button>
                                             <button className="btn btn-danger" style={{ fontSize: 12, padding: '6px 14px' }} onClick={() => router.delete(`/depreciation/${d.id}`)}>
                                                 Remove
                                             </button>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Inline edit */}
-                                {editingId === d.id && (
+                                {/* Inline edit: admin only */}
+                                {isAdmin && editingId === d.id && (
                                     <div className="edit-inline">
                                         <div className="form-grid-2" style={{ marginBottom: 14 }}>
                                             <div>

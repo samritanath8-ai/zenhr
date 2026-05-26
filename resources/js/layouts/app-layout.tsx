@@ -1,5 +1,6 @@
-import { type ReactNode, useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
+import {  useState } from 'react';
+import type {ReactNode} from 'react';
 
 interface BreadcrumbItem {
     title: string;
@@ -94,6 +95,7 @@ export default function AppLayout({ children, breadcrumbs }: Props) {
                 <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {NAV.map(item => {
                         const active = url.startsWith(item.href);
+
                         return (
                             <Link
                                 key={item.href}
@@ -114,12 +116,22 @@ export default function AppLayout({ children, breadcrumbs }: Props) {
                                     overflow: 'hidden',
                                 }}
                                 onMouseEnter={e => {
-                                    if (!active) (e.currentTarget as HTMLElement).style.color = '#fff';
-                                    if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
+                                    if (!active) {
+(e.currentTarget as HTMLElement).style.color = '#fff';
+}
+
+                                    if (!active) {
+(e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
+}
                                 }}
                                 onMouseLeave={e => {
-                                    if (!active) (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.5)';
-                                    if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent';
+                                    if (!active) {
+(e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.5)';
+}
+
+                                    if (!active) {
+(e.currentTarget as HTMLElement).style.background = 'transparent';
+}
                                 }}
                             >
                                 <span style={{ flexShrink: 0 }}>{item.icon}</span>

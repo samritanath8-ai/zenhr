@@ -1,5 +1,6 @@
-import { FormEventHandler, useState } from 'react';
-import { Head, useForm, Link, router } from '@inertiajs/react';
+import { Head, useForm, Link, router, usePage } from '@inertiajs/react';
+import type { FormEventHandler } from 'react';
+import { useState } from 'react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 
 interface User {
@@ -42,6 +43,11 @@ interface Props {
     availableAssets: AvailableAsset[];
 }
 
+interface PageProps {
+    auth: { user: { role: string; id: number } };
+    [key: string]: unknown;
+}
+
 const DEVICE_ICONS: Record<string, JSX.Element> = {
     mac:     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>,
     ios:     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>,
@@ -61,13 +67,55 @@ const STATUS_COLOR: Record<string, string> = {
     'in-repair': '#f5c842', retired: 'rgba(255,255,255,0.3)',
 };
 
+function ResetPasswordForm({ userId }: { userId: number }) {
+    const { data, setData, patch, processing, errors, wasSuccessful, reset } = useForm({
+        password: '',
+        password_confirmation: '',
+    });
+
+    const submit = () => {
+        patch(`/users/${userId}/reset-password`, {
+            onSuccess: () => reset(),
+        });
+    };
+
+    return (
+        <div>
+            {wasSuccessful && (
+                <div style={{ background: 'rgba(91,219,143,0.1)', border: '1px solid rgba(91,219,143,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#5bdb8f', marginBottom: 16 }}>
+                    Password reset successfully.
+                </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div>
+                    <label className="field-label">New password</label>
+                    <input className="field-input" type="password" placeholder="••••••••" value={data.password} onChange={e => setData('password', e.target.value)} />
+                    {errors.password && <p className="field-error">{errors.password}</p>}
+                </div>
+                <div>
+                    <label className="field-label">Confirm password</label>
+                    <input className="field-input" type="password" placeholder="••••••••" value={data.password_confirmation} onChange={e => setData('password_confirmation', e.target.value)} />
+                </div>
+            </div>
+            <button className="btn-primary" style={{ fontSize: 13, padding: '9px 20px' }} disabled={processing || !data.password} onClick={submit}>
+                {processing ? 'Resetting…' : 'Reset password'}
+            </button>
+        </div>
+    );
+}
+
 export default function Edit({ user, devices, assets, availableAssets }: Props) {
+    const { auth } = usePage<PageProps>().props;
     const { data, setData, put, processing, errors } = useForm({
         name:       user.name,
         email:      user.email,
         role:       user.role || '',
         is_enabled: user.is_enabled ?? true,
     });
+
+    const isAdmin   = auth.user.role === 'admin';
+    const isManager = auth.user.role === 'manager';
+    const isSelf    = auth.user.id === user.id;
 
     const [showAssignPanel, setShowAssignPanel] = useState(false);
     const [selectedAssetId, setSelectedAssetId] = useState('');
@@ -99,13 +147,13 @@ export default function Edit({ user, devices, assets, availableAssets }: Props) 
                 .form-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 32px; max-width: 560px; }
                 .field { margin-bottom: 22px; }
                 .field-label { display: block; font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.5); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
-                .field-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 13px 16px; font-size: 14px; color: #fff; outline: none; transition: border-color 0.2s, box-shadow 0.2s; font-family: inherit; }
+                .field-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 13px 16px; font-size: 14px; color: #fff; outline: none; transition: border-color 0.2s, box-shadow 0.2s; font-family: inherit; box-sizing: border-box; }
                 .field-input::placeholder { color: rgba(255,255,255,0.2); }
                 .field-input:focus { border-color: rgba(245,200,66,0.5); background: rgba(245,200,66,0.04); box-shadow: 0 0 0 3px rgba(245,200,66,0.08); }
                 .field-input option { background: #1a1f2e; color: #fff; }
                 .field-error { font-size: 12px; color: #ff6b6b; margin-top: 6px; }
                 .btn-row { display: flex; gap: 12px; margin-top: 8px; align-items: center; }
-                .btn-primary { background: #f5c842; color: #080b14; border: none; border-radius: 12px; padding: 13px 28px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+                .btn-primary { background: #f5c842; color: #080b14; border: none; border-radius: 12px; padding: 13px 28px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit; }
                 .btn-primary:hover:not(:disabled) { background: #ffd54f; transform: translateY(-1px); }
                 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
                 .btn-cancel { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 13px 28px; font-size: 14px; font-weight: 500; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; transition: all 0.2s; }
@@ -142,48 +190,63 @@ export default function Edit({ user, devices, assets, availableAssets }: Props) 
                     <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Update account details for {user.name}.</p>
                 </div>
 
-                {/* User form */}
-                <div className="form-card">
-                    <form onSubmit={submit}>
-                        <div className="field">
-                            <label className="field-label">Full name</label>
-                            <input className="field-input" type="text" value={data.name} onChange={e => setData('name', e.target.value)} required />
-                            {errors.name && <p className="field-error">{errors.name}</p>}
-                        </div>
-                        <div className="field">
-                            <label className="field-label">Email address</label>
-                            <input className="field-input" type="email" value={data.email} onChange={e => setData('email', e.target.value)} required />
-                            {errors.email && <p className="field-error">{errors.email}</p>}
-                        </div>
-                        <div className="field">
-                            <label className="field-label">Role</label>
-                            <select className="field-input" value={data.role} onChange={e => setData('role', e.target.value)}>
-                                <option value="">Select role</option>
-                                <option value="admin">Admin</option>
-                                <option value="manager">Manager</option>
-                                <option value="user">User</option>
-                                <option value="employee">Employee</option>
-                            </select>
-                            {errors.role && <p className="field-error">{errors.role}</p>}
-                        </div>
-                        <div className="btn-row">
-                            <button type="submit" className="btn-primary" disabled={processing}>
-                                {processing ? 'Saving...' : 'Save changes'}
-                            </button>
-                            <Link href={route('users.index')} className="btn-cancel">Cancel</Link>
-                            <button
-                                type="button"
-                                className="toggle-switch"
-                                onClick={() => setData('is_enabled', !data.is_enabled)}
-                            >
-                                <div className={`toggle-track ${data.is_enabled ? 'on' : 'off'}`}>
-                                    <div className="toggle-thumb" />
+                {/* ── Role-based form block ── */}
+                {(isAdmin || isSelf) ? (
+                    <div className="form-card">
+                        <form onSubmit={submit}>
+                            <div className="field">
+                                <label className="field-label">Full name</label>
+                                <input className="field-input" type="text" value={data.name} onChange={e => setData('name', e.target.value)} required />
+                                {errors.name && <p className="field-error">{errors.name}</p>}
+                            </div>
+                            <div className="field">
+                                <label className="field-label">Email address</label>
+                                <input className="field-input" type="email" value={data.email} onChange={e => setData('email', e.target.value)} required />
+                                {errors.email && <p className="field-error">{errors.email}</p>}
+                            </div>
+                            {isAdmin && (
+                                <div className="field">
+                                    <label className="field-label">Role</label>
+                                    <select className="field-input" value={data.role} onChange={e => setData('role', e.target.value)}>
+                                        <option value="">Select role</option>
+                                        <option value="admin">Admin</option>
+                                        <option value="manager">Manager</option>
+                                        <option value="user">User</option>
+                                        <option value="employee">Employee</option>
+                                    </select>
+                                    {errors.role && <p className="field-error">{errors.role}</p>}
                                 </div>
-                                <span className="toggle-label">{data.is_enabled ? 'Enabled' : 'Disabled'}</span>
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                            )}
+                            <div className="btn-row">
+                                <button type="submit" className="btn-primary" disabled={processing}>
+                                    {processing ? 'Saving...' : 'Save changes'}
+                                </button>
+                                <Link href={route('users.index')} className="btn-cancel">Cancel</Link>
+                                {isAdmin && (
+                                    <button
+                                        type="button"
+                                        className="toggle-switch"
+                                        onClick={() => setData('is_enabled', !data.is_enabled)}
+                                    >
+                                        <div className={`toggle-track ${data.is_enabled ? 'on' : 'off'}`}>
+                                            <div className="toggle-thumb" />
+                                        </div>
+                                        <span className="toggle-label">{data.is_enabled ? 'Enabled' : 'Disabled'}</span>
+                                    </button>
+                                )}
+                            </div>
+                        </form>
+                    </div>
+                ) : (
+                    <div className="form-card">
+                        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Name</div>
+                        <div style={{ fontSize: 15, color: '#fff', marginBottom: 16 }}>{user.name}</div>
+                        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Email</div>
+                        <div style={{ fontSize: 15, color: '#fff', marginBottom: 16 }}>{user.email}</div>
+                        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Role</div>
+                        <div style={{ fontSize: 15, color: '#fff' }}>{user.role}</div>
+                    </div>
+                )}
 
                 {/* Devices panel */}
                 <div className="panel">
@@ -213,12 +276,13 @@ export default function Edit({ user, devices, assets, availableAssets }: Props) 
                                         {device.identifier ? ` · ${device.identifier}` : ''}
                                     </div>
                                 </div>
-                                <button className="btn-sm" onClick={() => removeDevice(device.id)}>Remove</button>
+                                {isAdmin && (
+                                    <button className="btn-sm" onClick={() => removeDevice(device.id)}>Remove</button>
+                                )}
                             </div>
                         ))
                     )}
 
-                    {/* Assign existing asset panel */}
                     {showAssignPanel && (
                         <div className="assign-panel">
                             <div style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)', marginBottom: 10 }}>
@@ -244,11 +308,7 @@ export default function Edit({ user, devices, assets, availableAssets }: Props) 
                                 </select>
                             )}
                             <div style={{ display: 'flex', gap: 8 }}>
-                                <button
-                                    className="btn-assign"
-                                    disabled={!selectedAssetId || assigning}
-                                    onClick={assignAsset}
-                                >
+                                <button className="btn-assign" disabled={!selectedAssetId || assigning} onClick={assignAsset}>
                                     {assigning ? 'Assigning…' : 'Assign'}
                                 </button>
                                 <button className="btn-ghost" onClick={() => { setShowAssignPanel(false); setSelectedAssetId(''); }}>
@@ -259,14 +319,16 @@ export default function Edit({ user, devices, assets, availableAssets }: Props) 
                     )}
 
                     <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-                        {!showAssignPanel && (
+                        {(isAdmin || isManager) && !showAssignPanel && (
                             <button className="btn-add-device" onClick={() => setShowAssignPanel(true)}>
                                 + Assign existing asset
                             </button>
                         )}
-                        <Link href={`/assets/create?user_id=${user.id}`} className="btn-add-device">
-                            + Create new asset
-                        </Link>
+                        {isAdmin && (
+                            <Link href={`/assets/create?user_id=${user.id}`} className="btn-add-device">
+                                + Create new asset
+                            </Link>
+                        )}
                     </div>
                 </div>
 
@@ -300,16 +362,19 @@ export default function Edit({ user, devices, assets, availableAssets }: Props) 
                                 }}>
                                     {asset.status}
                                 </span>
-                                <Link
-                                    href={route('assets.edit', asset.id)}
-                                    style={{ fontSize: 12, color: '#f5c842', textDecoration: 'none', marginLeft: 12 }}
-                                >
-                                    Edit
-                                </Link>
+                                {isAdmin && (
+                                    <Link
+                                        href={route('assets.edit', asset.id)}
+                                        style={{ fontSize: 12, color: '#f5c842', textDecoration: 'none', marginLeft: 12 }}
+                                    >
+                                        Edit
+                                    </Link>
+                                )}
                             </div>
                         ))
                     )}
                 </div>
+
             </div>
         </AuthenticatedLayout>
     );

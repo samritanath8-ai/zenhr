@@ -1,6 +1,6 @@
-import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 import { Head, usePage } from '@inertiajs/react';
 import { useState, useEffect, useCallback } from 'react';
+import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 
 const API_BASE = 'http://hrm.test';
 const REFRESH_INTERVAL = 30_000;
@@ -49,6 +49,7 @@ const STATUS_COLOR: Record<string, string> = {
 export default function Dashboard() {
     const { auth, totalUsers, totalAssets, assignedAssets, availableAssets, inRepairAssets, expiringAssets } = usePage().props as any;
     const role = auth?.user?.role;
+    const isAdmin = role === 'admin';
 
     const [metrics,     setMetrics]     = useState<Metrics | null>(null);
     const [activity,    setActivity]    = useState<ActivityDay[] | null>(null);
@@ -78,7 +79,6 @@ export default function Dashboard() {
     }, []);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         load();
         const interval = setInterval(load, REFRESH_INTERVAL);
         return () => clearInterval(interval);
@@ -101,10 +101,20 @@ export default function Dashboard() {
     ];
 
     const quickActions = [
-        ...((['admin', 'manager'].includes(role)) ? [
+        // Add user: admin only
+        ...(isAdmin ? [
             { href: '/users/create', icon: '+',  bg: 'rgba(245,200,66,0.12)',  title: 'Add user',     sub: 'Create a new account' },
+        ] : []),
+        // Manage users: admin and manager
+        ...(['admin', 'manager'].includes(role) ? [
             { href: '/users',        icon: '👥', bg: 'rgba(100,120,255,0.12)', title: 'Manage users', sub: 'View all registered users' },
+        ] : []),
+        // Add asset: admin only
+        ...(isAdmin ? [
             { href: '/assets/create',icon: '📦', bg: 'rgba(100,220,140,0.12)', title: 'Add asset',    sub: 'Register a new asset' },
+        ] : []),
+        // View assets: admin and manager
+        ...(['admin', 'manager'].includes(role) ? [
             { href: '/assets',       icon: '🗂', bg: 'rgba(100,180,255,0.12)', title: 'View assets',  sub: 'Browse all assets' },
         ] : []),
         { href: '/profile', icon: '⚙', bg: 'rgba(255,100,100,0.1)', title: 'Settings', sub: 'Profile & preferences' },
@@ -150,7 +160,6 @@ export default function Dashboard() {
                     )}
                 </div>
 
-                {/* Expiring warranty alert */}
                 {expiringAssets > 0 && ['admin', 'manager'].includes(role) && (
                     <div className="alert-banner fade-up">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -163,7 +172,6 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {/* User stats */}
                 <div className="fade-up-1" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                     {stats.map((s, i) => (
                         <div key={i} className="stat-card">
@@ -179,7 +187,6 @@ export default function Dashboard() {
                     ))}
                 </div>
 
-                {/* Asset stats */}
                 {['admin', 'manager'].includes(role) && (
                     <div className="fade-up-1" style={{ marginBottom: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>

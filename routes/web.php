@@ -10,6 +10,12 @@ use App\Models\User;
 /* HOME */
 Route::get('/', fn() => inertia('auth/login'))->name('home');
 
+/* LOGIN */
+Route::get('/login', fn() => inertia('auth/login', [
+    'canResetPassword' => true,
+    'status' => session('status'),
+]))->name('login');
+
 Route::post('/login', function (Request $request) {
     $request->validate(['email' => ['required', 'email'], 'password' => ['required']]);
     if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
@@ -22,7 +28,6 @@ Route::post('/login', function (Request $request) {
     }
     return back()->withErrors(['email' => 'These credentials do not match our records.']);
 })->name('login.store');
-    
 
 /* REGISTER */
 Route::get('/register', fn() => inertia('auth/register'))->name('register');
@@ -45,52 +50,106 @@ Route::post('/logout', function (Request $request) {
     return redirect()->route('home');
 })->name('logout');
 
+/* PASSWORD RESET */
+Route::get('/forgot-password', fn() => inertia('auth/forgot-password', [
+    'status' => session('status'),
+]))->name('password.request');
+
+Route::post('/forgot-password', function (Request $request) {
+    $request->validate(['email' => ['required', 'email']]);
+    $status = \Illuminate\Support\Facades\Password::sendResetLink($request->only('email'));
+    return $status === \Illuminate\Support\Facades\Password::RESET_LINK_SENT
+        ? back()->with('status', 'We\'ve emailed you a password reset link.')
+        : back()->withErrors(['email' => __($status)]);
+})->name('password.email');
+
+Route::get('/reset-password/{token}', function (string $token, Request $request) {
+    return inertia('auth/reset-password', [
+        'token' => $token,
+        'email' => $request->query('email', ''),
+    ]);
+})->name('password.reset');
+
+Route::post('/reset-password', function (Request $request) {
+    $request->validate([
+        'token'    => ['required'],
+        'email'    => ['required', 'email'],
+        'password' => ['required', 'confirmed', Password::min(8)],
+    ]);
+    $status = \Illuminate\Support\Facades\Password::reset(
+        $request->only('email', 'password', 'password_confirmation', 'token'),
+        function ($user, $password) { $user->update(['password' => Hash::make($password)]); }
+    );
+    return $status === \Illuminate\Support\Facades\Password::PASSWORD_RESET
+        ? redirect('/login')->with('status', 'Password reset successfully. Please log in.')
+        : back()->withErrors(['email' => __($status)]);
+})->name('password.update');
+
+Route::post('/forgot-password/reset', function (Request $request) {
+    $request->validate([
+        'email'    => ['required', 'email', 'exists:users,email'],
+        'password' => ['required', 'confirmed', Password::min(8)],
+    ]);
+    $user = User::where('email', $request->email)->firstOrFail();
+    if (!$user->is_enabled) {
+        return back()->withErrors(['email' => 'This account has been disabled.']);
+    }
+    $user->update(['password' => Hash::make($request->password)]);
+    return back()->with('success', 'Password updated.');
+})->name('forgot-password.reset');
+
 /* ALL AUTHENTICATED ROUTES */
 Route::middleware('auth')->group(function () {
 
-Route::put('/user/password', function (Request $request) {
-    $request->validate([
-        'current_password' => ['required'],
-        'password' => ['required', 'confirmed', Password::min(8)],
-    ]);
-    if (! Hash::check($request->current_password, Auth::user()->password)) {
-        return back()->withErrors(['current_password' => 'The provided password is incorrect.']);
-    }
-    Auth::user()->update(['password' => Hash::make($request->password)]);
-    return redirect()->route('security.edit');
-})->name('user-password.update');
+    Route::patch('/users/{id}/reset-password', function (Request $request, $id) {
+        if (Auth::user()->role !== 'admin') return redirect('/users');
+        $request->validate(['password' => ['required', 'confirmed', Password::min(8)]]);
+        User::findOrFail($id)->update(['password' => Hash::make($request->password)]);
+        return back()->with('success', 'Password reset successfully.');
+    })->name('users.reset-password');
 
-Route::delete('/profile', function (Request $request) {
-    $request->validate(['password' => ['required']]);
-    $user = Auth::user();
-    if (! \Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
-        return back()->withErrors(['password' => 'The provided password is incorrect.']);
-    }
-    Auth::logout();
-    $user->delete();
-    $request->session()->invalidate();
-    $request->session()->regenerateToken();
-    return redirect()->route('home');
-})->name('profile.destroy');
+    Route::put('/user/password', function (Request $request) {
+        $request->validate([
+            'current_password' => ['required'],
+            'password' => ['required', 'confirmed', Password::min(8)],
+        ]);
+        if (! Hash::check($request->current_password, Auth::user()->password)) {
+            return back()->withErrors(['current_password' => 'The provided password is incorrect.']);
+        }
+        Auth::user()->update(['password' => Hash::make($request->password)]);
+        return redirect()->route('security.edit');
+    })->name('user-password.update');
 
-Route::get('/settings/security', function (Request $request) {
-    $canManage = \Laravel\Fortify\Features::enabled(\Laravel\Fortify\Features::twoFactorAuthentication());
-    $needsConfirm = $canManage && \Laravel\Fortify\Features::optionEnabled(\Laravel\Fortify\Features::twoFactorAuthentication(), 'confirmPassword');
+    Route::delete('/profile', function (Request $request) {
+        $request->validate(['password' => ['required']]);
+        $user = Auth::user();
+        if (! Hash::check($request->password, $user->password)) {
+            return back()->withErrors(['password' => 'The provided password is incorrect.']);
+        }
+        Auth::logout();
+        $user->delete();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect()->route('home');
+    })->name('profile.destroy');
 
-    if ($needsConfirm && ! $request->session()->get('auth.password_confirmed_at')) {
-        return redirect()->route('password.confirm');
-    }
+    Route::get('/settings/security', function (Request $request) {
+        $canManage = \Laravel\Fortify\Features::enabled(\Laravel\Fortify\Features::twoFactorAuthentication());
+        $needsConfirm = $canManage && \Laravel\Fortify\Features::optionEnabled(\Laravel\Fortify\Features::twoFactorAuthentication(), 'confirmPassword');
+        if ($needsConfirm && ! $request->session()->get('auth.password_confirmed_at')) {
+            return redirect()->route('password.confirm');
+        }
+        $props = ['canManageTwoFactor' => $canManage];
+        if ($canManage) {
+            $props['twoFactorEnabled'] = Auth::user()->two_factor_secret !== null;
+            $props['requiresConfirmation'] = $needsConfirm;
+        }
+        return inertia('settings/security', $props);
+    })->name('security.edit');
 
-    $props = ['canManageTwoFactor' => $canManage];
-    if ($canManage) {
-        $props['twoFactorEnabled'] = Auth::user()->two_factor_secret !== null;
-        $props['requiresConfirmation'] = $needsConfirm;
-    }
-
-    return inertia('settings/security', $props);
-})->name('security.edit');
-
-    /* DASHBOARD */
+    /* ------------------------------------------------------------------ */
+    /* DASHBOARD                                                            */
+    /* ------------------------------------------------------------------ */
     Route::get('/dashboard', function () {
         return inertia('dashboard', [
             'totalUsers'      => \App\Models\User::count(),
@@ -148,10 +207,10 @@ Route::get('/settings/security', function (Request $request) {
         if (!in_array(Auth::user()->role, ['admin', 'manager'])) return redirect('/dashboard');
         $dep = \App\Models\AssetDepreciation::findOrFail($id);
         $dep->update($request->validate([
-            'units_used' => ['nullable', 'integer', 'min:0'],
-            'declining_rate' => ['nullable', 'numeric', 'min:0.01', 'max:100'],
+            'units_used'        => ['nullable', 'integer', 'min:0'],
+            'declining_rate'    => ['nullable', 'numeric', 'min:0.01', 'max:100'],
             'useful_life_years' => ['nullable', 'integer', 'min:1'],
-            'salvage_value' => ['nullable', 'numeric', 'min:0'],
+            'salvage_value'     => ['nullable', 'numeric', 'min:0'],
         ]));
         return back()->with('success', 'Updated.');
     })->name('depreciation.update');
@@ -259,7 +318,6 @@ Route::get('/settings/security', function (Request $request) {
             'status'       => 'pending',
         ]);
         $transfer->load(['asset', 'fromUser', 'toUser', 'requester']);
-        // Notify other admins/managers
         User::whereIn('role', ['admin', 'manager'])->where('id', '!=', Auth::id())
             ->each(fn($u) => $u->notify(new \App\Notifications\TransferRequested($transfer)));
         return back()->with('success', 'Transfer request submitted.');
@@ -271,9 +329,7 @@ Route::get('/settings/security', function (Request $request) {
         if ($transfer->status !== 'pending') return redirect()->route('profile.edit');
         $asset     = $transfer->asset;
         $oldUserId = $asset->user_id;
-        // Reassign asset
         $asset->update(['user_id' => $transfer->to_user_id, 'status' => 'assigned']);
-        // Sync devices
         $deviceType = \App\Models\Asset::assetTypeToDeviceType($asset->type, $asset->device_platform);
         if ($deviceType) {
             if ($oldUserId) \App\Models\Device::where('user_id', $oldUserId)->where('name', $asset->name)->delete();
@@ -344,7 +400,7 @@ Route::get('/settings/security', function (Request $request) {
     })->name('assets.documents.destroy');
 
     /* ------------------------------------------------------------------ */
-    /* COMPLIANCE REPORTS (CSV exports)                                    */
+    /* COMPLIANCE REPORTS                                                   */
     /* ------------------------------------------------------------------ */
     Route::get('/reports', function () {
         if (!in_array(Auth::user()->role, ['admin', 'manager'])) return redirect('/dashboard');
@@ -406,21 +462,25 @@ Route::get('/settings/security', function (Request $request) {
 
     Route::patch('/profile', function (Request $request) {
         $user = Auth::user();
-        $validated = $request->validate(['name' => ['required', 'string', 'max:255'], 'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id]]);
-        if ($validated['email'] !== $user->email) { $validated['email_verified_at'] = null; }
+        $validated = $request->validate([
+            'name'  => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
+        ]);
+        if ($validated['email'] !== $user->email) {
+            $validated['email_verified_at'] = null;
+        }
         $user->update($validated);
-
         return redirect()->route('profile.edit');
     })->name('profile.update');
-    /* NOTIFICATION PREFERENCES */
+
     Route::get('/profile/notifications', function () {
         $user = Auth::user();
         return inertia('settings/notifications', [
             'preferences' => $user->notification_preferences ?? [
-                'asset_assigned'       => true,
-                'warranty_expiry'      => true,
-                'request_reviewed'     => true,
-                'transfer_reviewed'    => true,
+                'asset_assigned'    => true,
+                'warranty_expiry'   => true,
+                'request_reviewed'  => true,
+                'transfer_reviewed' => true,
             ],
         ]);
     })->name('profile.notifications');
@@ -461,19 +521,28 @@ Route::get('/settings/security', function (Request $request) {
     })->name('users.edit');
 
     Route::put('/users/{id}', function (Request $request, $id) {
-        $authUser = Auth::user();
-        if (!in_array($authUser->role, ['admin', 'manager']) && $authUser->id != $id) return redirect('/dashboard');
-        $rules = [
-            'name'       => ['required', 'string', 'max:255'],
-            'email'      => ['required', 'email', 'max:255', 'unique:users,email,' . $id],
-            'is_enabled' => ['boolean'],
-        ];
-        if ($authUser->role === 'admin') $rules['role'] = ['nullable', 'string', 'in:admin,manager,user,employee'];
-        $validated = $request->validate($rules);
+    $authUser = Auth::user();
+    $authRole = $authUser->role;
+
+    // managers can only edit their own profile
+    if ($authRole === 'manager' && $authUser->id != $id) return redirect('/users');
+    if (!in_array($authRole, ['admin', 'manager']) && $authUser->id != $id) return redirect('/dashboard');
+
+    $rules = [
+        'name'  => ['required', 'string', 'max:255'],
+        'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $id],
+    ];
+    if ($authRole === 'admin') {
+        $rules['role']       = ['nullable', 'string', 'in:admin,manager,user,employee'];
+        $rules['is_enabled'] = ['boolean'];
+    }
+    $validated = $request->validate($rules);
+    if ($authRole === 'admin') {
         $validated['is_enabled'] = $request->boolean('is_enabled', true);
-        User::findOrFail($id)->update($validated);
-        return redirect('/users')->with('success', 'User updated successfully.');
-    })->name('users.update');
+    }
+    User::findOrFail($id)->update($validated);
+    return redirect('/users')->with('success', 'User updated successfully.');
+})->name('users.update');
 
     Route::post('/users/{id}/assign-asset', function (Request $request, $id) {
         if (!in_array(Auth::user()->role, ['admin', 'manager'])) return redirect('/users');
@@ -502,8 +571,8 @@ Route::get('/settings/security', function (Request $request) {
     /* DEVICES                                                              */
     /* ------------------------------------------------------------------ */
     Route::get('/devices', function (Request $request) {
-        $type    = $request->query('type');
-        $query   = \App\Models\Device::with('user')->latest();
+        $type  = $request->query('type');
+        $query = \App\Models\Device::with('user')->latest();
         if ($type) $query->where('type', $type);
         return inertia('devices/index', ['devices' => $query->get(), 'type' => $type]);
     })->name('devices.index');
@@ -534,31 +603,31 @@ Route::get('/settings/security', function (Request $request) {
     })->name('assets.index');
 
     Route::get('/assets/create', function () {
-        if (!in_array(Auth::user()->role, ['admin', 'manager'])) return redirect('/assets');
-        return inertia('assets/create', ['users' => User::orderBy('name')->get(['id', 'name', 'email'])]);
-    })->name('assets.create');
+    if (Auth::user()->role !== 'admin') return redirect('/assets');
+    return inertia('assets/create', ['users' => User::orderBy('name')->get(['id', 'name', 'email'])]);
+})->name('assets.create');
 
-    Route::post('/assets', function (Request $request) {
-        if (!in_array(Auth::user()->role, ['admin', 'manager'])) return redirect('/assets');
+Route::post('/assets', function (Request $request) {
+    if (Auth::user()->role !== 'admin') return redirect('/assets');
         $validated = $request->validate([
-            'asset_number'   => ['required', 'string', 'unique:assets,asset_number'],
-            'name'           => ['required', 'string', 'max:255'],
-            'type'           => ['required', 'string', 'max:100'],
-            'serial_number'  => ['nullable', 'string', 'max:255'],
-            'vendor'         => ['nullable', 'string', 'max:255'],
-            'department'     => ['nullable', 'string', 'max:255'],
-            'location'       => ['nullable', 'string', 'max:255'],
-            'purchase_price' => ['nullable', 'numeric'],
-            'purchase_date'  => ['nullable', 'date'],
-            'warranty_expiry'=> ['nullable', 'date'],
-            'status'         => ['required', 'in:available,assigned,in-repair,retired'],
-            'notes'          => ['nullable', 'string'],
-            'user_id'        => ['nullable', 'exists:users,id'],
+            'asset_number'    => ['required', 'string', 'unique:assets,asset_number'],
+            'name'            => ['required', 'string', 'max:255'],
+            'type'            => ['required', 'string', 'max:100'],
+            'serial_number'   => ['nullable', 'string', 'max:255'],
+            'vendor'          => ['nullable', 'string', 'max:255'],
+            'department'      => ['nullable', 'string', 'max:255'],
+            'location'        => ['nullable', 'string', 'max:255'],
+            'purchase_price'  => ['nullable', 'numeric'],
+            'purchase_date'   => ['nullable', 'date'],
+            'warranty_expiry' => ['nullable', 'date'],
+            'status'          => ['required', 'in:available,assigned,in-repair,retired'],
+            'notes'           => ['nullable', 'string'],
+            'user_id'         => ['nullable', 'exists:users,id'],
         ]);
         if ($validated['user_id']) $validated['status'] = 'assigned';
         $asset = \App\Models\Asset::create($validated);
         \App\Models\AssetLog::create(['asset_id' => $asset->id, 'user_id' => Auth::id(), 'action' => 'created', 'detail' => 'Asset created by ' . Auth::user()->name]);
-        $deviceType = \App\Models\Asset::assetTypeToDeviceType($asset->type, $asset->device_platform);
+        $deviceType = \App\Models\Asset::assetTypeToDeviceType($asset->type, $asset->device_platform ?? null);
         if ($deviceType && $asset->user_id) {
             \App\Models\Device::firstOrCreate(['user_id' => $asset->user_id, 'name' => $asset->name], ['type' => $deviceType, 'identifier' => $asset->serial_number]);
         }
@@ -581,46 +650,69 @@ Route::get('/settings/security', function (Request $request) {
     })->name('assets.edit');
 
     Route::put('/assets/{id}', function (Request $request, $id) {
-        if (!in_array(Auth::user()->role, ['admin', 'manager'])) return redirect('/assets');
-        $asset     = \App\Models\Asset::findOrFail($id);
+    $role = Auth::user()->role;
+    if (!in_array($role, ['admin', 'manager'])) return redirect('/assets');
+
+    $asset = \App\Models\Asset::findOrFail($id);
+
+    // managers can only change user assignment, nothing else
+    if ($role === 'manager') {
         $validated = $request->validate([
-            'asset_number'    => ['required', 'string', 'unique:assets,asset_number,' . $id],
-            'name'            => ['required', 'string', 'max:255'],
-            'type'            => ['required', 'string', 'max:100'],
-            'device_platform' => ['nullable', 'string', 'in:mac,ios,android,windows'],
-            'serial_number'   => ['nullable', 'string', 'max:255'],
-            'vendor'          => ['nullable', 'string', 'max:255'],
-            'department'      => ['nullable', 'string', 'max:255'],
-            'location'        => ['nullable', 'string', 'max:255'],
-            'purchase_price'  => ['nullable', 'numeric'],
-            'purchase_date'   => ['nullable', 'date'],
-            'warranty_expiry' => ['nullable', 'date'],
-            'status'          => ['required', 'in:available,assigned,in-repair,retired'],
-            'notes'           => ['nullable', 'string'],
-            'user_id'         => ['nullable', 'exists:users,id'],
+            'user_id' => ['nullable', 'exists:users,id'],
         ]);
         $oldUserId = $asset->user_id;
         $newUserId = $validated['user_id'] ? (int)$validated['user_id'] : null;
-        if ($newUserId) $validated['status'] = 'assigned';
-        elseif (!$newUserId && $oldUserId) $validated['status'] = 'available';
-        $asset->update($validated);
+        if ($newUserId) $asset->update(['user_id' => $newUserId, 'status' => 'assigned']);
+        elseif (!$newUserId && $oldUserId) $asset->update(['user_id' => null, 'status' => 'available']);
         if ($newUserId && $newUserId !== $oldUserId) {
             $assignedUser = User::find($newUserId);
             \App\Models\AssetLog::create(['asset_id' => $asset->id, 'user_id' => Auth::id(), 'action' => 'assigned', 'detail' => 'Assigned to ' . ($assignedUser?->name ?? 'unknown') . ' by ' . Auth::user()->name]);
             $assignedUser?->notify(new \App\Notifications\AssetAssigned($asset, Auth::user()->name));
         } elseif (!$newUserId && $oldUserId) {
             \App\Models\AssetLog::create(['asset_id' => $asset->id, 'user_id' => Auth::id(), 'action' => 'unassigned', 'detail' => 'Unassigned by ' . Auth::user()->name]);
-        } else {
-            \App\Models\AssetLog::create(['asset_id' => $asset->id, 'user_id' => Auth::id(), 'action' => 'updated', 'detail' => 'Updated by ' . Auth::user()->name]);
-        }
-        $deviceType = \App\Models\Asset::assetTypeToDeviceType($asset->type, $asset->device_platform);
-        if ($deviceType && $newUserId) {
-            \App\Models\Device::firstOrCreate(['user_id' => $newUserId, 'name' => $asset->name], ['type' => $deviceType, 'identifier' => $asset->serial_number]);
-        } elseif ($deviceType && !$newUserId && $oldUserId) {
-            \App\Models\Device::where('user_id', $oldUserId)->where('name', $asset->name)->delete();
         }
         return redirect('/assets')->with('success', 'Asset updated.');
-    })->name('assets.update');
+    }
+
+    // admin full edit
+    $validated = $request->validate([
+        'asset_number'    => ['required', 'string', 'unique:assets,asset_number,' . $id],
+        'name'            => ['required', 'string', 'max:255'],
+        'type'            => ['required', 'string', 'max:100'],
+        'device_platform' => ['nullable', 'string', 'in:mac,ios,android,windows'],
+        'serial_number'   => ['nullable', 'string', 'max:255'],
+        'vendor'          => ['nullable', 'string', 'max:255'],
+        'department'      => ['nullable', 'string', 'max:255'],
+        'location'        => ['nullable', 'string', 'max:255'],
+        'purchase_price'  => ['nullable', 'numeric'],
+        'purchase_date'   => ['nullable', 'date'],
+        'warranty_expiry' => ['nullable', 'date'],
+        'status'          => ['required', 'in:available,assigned,in-repair,retired'],
+        'notes'           => ['nullable', 'string'],
+        'user_id'         => ['nullable', 'exists:users,id'],
+    ]);
+    $oldUserId = $asset->user_id;
+    $newUserId = $validated['user_id'] ? (int)$validated['user_id'] : null;
+    if ($newUserId) $validated['status'] = 'assigned';
+    elseif (!$newUserId && $oldUserId) $validated['status'] = 'available';
+    $asset->update($validated);
+    if ($newUserId && $newUserId !== $oldUserId) {
+        $assignedUser = User::find($newUserId);
+        \App\Models\AssetLog::create(['asset_id' => $asset->id, 'user_id' => Auth::id(), 'action' => 'assigned', 'detail' => 'Assigned to ' . ($assignedUser?->name ?? 'unknown') . ' by ' . Auth::user()->name]);
+        $assignedUser?->notify(new \App\Notifications\AssetAssigned($asset, Auth::user()->name));
+    } elseif (!$newUserId && $oldUserId) {
+        \App\Models\AssetLog::create(['asset_id' => $asset->id, 'user_id' => Auth::id(), 'action' => 'unassigned', 'detail' => 'Unassigned by ' . Auth::user()->name]);
+    } else {
+        \App\Models\AssetLog::create(['asset_id' => $asset->id, 'user_id' => Auth::id(), 'action' => 'updated', 'detail' => 'Updated by ' . Auth::user()->name]);
+    }
+    $deviceType = \App\Models\Asset::assetTypeToDeviceType($asset->type, $asset->device_platform);
+    if ($deviceType && $newUserId) {
+        \App\Models\Device::firstOrCreate(['user_id' => $newUserId, 'name' => $asset->name], ['type' => $deviceType, 'identifier' => $asset->serial_number]);
+    } elseif ($deviceType && !$newUserId && $oldUserId) {
+        \App\Models\Device::where('user_id', $oldUserId)->where('name', $asset->name)->delete();
+    }
+    return redirect('/assets')->with('success', 'Asset updated.');
+})->name('assets.update');
 
     Route::delete('/assets/{id}', function ($id) {
         if (Auth::user()->role !== 'admin') return redirect('/assets');
@@ -630,5 +722,4 @@ Route::get('/settings/security', function (Request $request) {
         return redirect('/assets')->with('success', 'Asset deleted.');
     })->name('assets.destroy');
 
-}); // end auth middleware group
-
+}); 

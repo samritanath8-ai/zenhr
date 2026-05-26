@@ -27,7 +27,6 @@ class AssetDocument extends Model
         return $this->belongsTo(User::class, 'uploaded_by');
     }
 
-    /** Human-readable file size */
     public function getFileSizeFormattedAttribute(): string
     {
         $bytes = $this->file_size ?? 0;

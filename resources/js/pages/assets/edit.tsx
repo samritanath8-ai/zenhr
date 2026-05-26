@@ -1,6 +1,6 @@
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
-import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 import { useState, useRef } from 'react';
+import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 
 interface Asset {
     id: number; asset_number: string; name: string; type: string;
@@ -67,6 +67,8 @@ function formatBytes(bytes: number | null): string {
 
 export default function EditAsset({ asset, users, logs, maintenanceLogs, documents }: Props) {
     const { auth } = usePage<PageProps>().props;
+    const isAdmin = auth.user.role === 'admin';
+
     const { data, setData, put, processing, errors } = useForm({
         asset_number: asset.asset_number, name: asset.name, type: asset.type,
         serial_number: asset.serial_number ?? '', vendor: asset.vendor ?? '',
@@ -90,7 +92,6 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
         });
     };
 
-    // ── Document upload state ──
     const [showDocForm, setShowDocForm] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const docForm = useForm<{ document: File | null; label: string }>({
@@ -102,7 +103,10 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
         if (!docForm.data.document) return;
         docForm.post(`/assets/${asset.id}/documents`, {
             forceFormData: true,
-            onSuccess: () => { docForm.reset(); setShowDocForm(false); if (fileInputRef.current) fileInputRef.current.value = ''; },
+            onSuccess: () => {
+                docForm.reset(); setShowDocForm(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            },
         });
     };
 
@@ -110,6 +114,9 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
         if (!confirm('Delete this document?')) return;
         router.delete(`/assets/${asset.id}/documents/${docId}`, { preserveScroll: true });
     };
+
+    // Helper: read-only display value
+    const roVal = (val: string | null | undefined) => val || '—';
 
     return (
         <AuthenticatedLayout header="Edit Asset">
@@ -123,6 +130,7 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
                 .form-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 14px; font-size: 14px; color: #fff; outline: none; transition: all 0.2s; font-family: inherit; width: 100%; box-sizing: border-box; }
                 .form-input:focus { border-color: rgba(245,200,66,0.4); background: rgba(255,255,255,0.07); }
                 .form-input option { background: #1a1f2e; color: #fff; }
+                .ro-val { font-size: 14px; color: #e0e0e0; padding: 10px 0; }
                 .error { font-size: 12px; color: #ff6b6b; }
                 .btn-save { background: #f5c842; color: #080b14; border: none; border-radius: 10px; padding: 11px 24px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
                 .btn-save:hover { background: #ffd54f; }
@@ -146,7 +154,6 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
                 .maint-row:last-child { border-bottom: none; }
                 .maint-type-badge { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 11px; font-weight: 500; background: rgba(100,180,255,0.1); color: #6ab4ff; border: 1px solid rgba(100,180,255,0.2); }
                 .maint-form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-                /* Documents */
                 .doc-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
                 .doc-row:last-child { border-bottom:none; }
                 .doc-icon { font-size:22px; flex-shrink:0; }
@@ -173,109 +180,148 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
                     <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>#{asset.asset_number}</p>
                 </div>
 
-                {/* ── Main form ── */}
+                {/* ── Main form: admin editable, manager read-only ── */}
                 <div className="form-panel">
-                    <div className="form-grid">
-                        <div className="form-group">
-                            <label>Asset Number *</label>
-                            <input className="form-input" value={data.asset_number} onChange={e => setData('asset_number', e.target.value)} />
-                            {errors.asset_number && <span className="error">{errors.asset_number}</span>}
-                        </div>
-                        <div className="form-group">
-                            <label>Name *</label>
-                            <input className="form-input" value={data.name} onChange={e => setData('name', e.target.value)} />
-                            {errors.name && <span className="error">{errors.name}</span>}
-                        </div>
-                        <div className="form-group">
-                            <label>Type *</label>
-                            <select className="form-input" value={data.type} onChange={e => setData('type', e.target.value)}>
-                                {['Laptop', 'Monitor', 'Keyboard', 'Mouse', 'Phone', 'Tablet', 'Chair', 'Desk', 'Other'].map(t => (
-                                    <option key={t} value={t}>{t}</option>
-                                ))}
-                            </select>
-                        </div>
-                        {['Laptop', 'Phone', 'Tablet'].includes(data.type) && (
-                            <div className="form-group">
-                                <label>Platform</label>
-                                <select className="form-input" value={data.device_platform} onChange={e => setData('device_platform', e.target.value)}>
-                                    <option value="">Select platform</option>
-                                    {data.type === 'Laptop' && <><option value="mac">Mac</option><option value="windows">Windows</option></>}
-                                    {data.type === 'Phone' && <><option value="ios">iOS</option><option value="android">Android</option></>}
-                                    {data.type === 'Tablet' && <><option value="ios">iOS</option><option value="android">Android</option></>}
-                                </select>
+                    {isAdmin ? (
+                        <>
+                            <div className="form-grid">
+                                <div className="form-group">
+                                    <label>Asset Number *</label>
+                                    <input className="form-input" value={data.asset_number} onChange={e => setData('asset_number', e.target.value)} />
+                                    {errors.asset_number && <span className="error">{errors.asset_number}</span>}
+                                </div>
+                                <div className="form-group">
+                                    <label>Name *</label>
+                                    <input className="form-input" value={data.name} onChange={e => setData('name', e.target.value)} />
+                                    {errors.name && <span className="error">{errors.name}</span>}
+                                </div>
+                                <div className="form-group">
+                                    <label>Type *</label>
+                                    <select className="form-input" value={data.type} onChange={e => setData('type', e.target.value)}>
+                                        {['Laptop', 'Monitor', 'Keyboard', 'Mouse', 'Phone', 'Tablet', 'Chair', 'Desk', 'Other'].map(t => (
+                                            <option key={t} value={t}>{t}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {['Laptop', 'Phone', 'Tablet'].includes(data.type) && (
+                                    <div className="form-group">
+                                        <label>Platform</label>
+                                        <select className="form-input" value={data.device_platform} onChange={e => setData('device_platform', e.target.value)}>
+                                            <option value="">Select platform</option>
+                                            {data.type === 'Laptop' && <><option value="mac">Mac</option><option value="windows">Windows</option></>}
+                                            {data.type === 'Phone' && <><option value="ios">iOS</option><option value="android">Android</option></>}
+                                            {data.type === 'Tablet' && <><option value="ios">iOS</option><option value="android">Android</option></>}
+                                        </select>
+                                    </div>
+                                )}
+                                <div className="form-group">
+                                    <label>Serial Number</label>
+                                    <input className="form-input" value={data.serial_number} onChange={e => setData('serial_number', e.target.value)} />
+                                </div>
+                                <div className="form-group">
+                                    <label>Vendor</label>
+                                    <input className="form-input" value={data.vendor} onChange={e => setData('vendor', e.target.value)} />
+                                </div>
+                                <div className="form-group">
+                                    <label>Department</label>
+                                    <select className="form-input" value={data.department} onChange={e => setData('department', e.target.value)}>
+                                        <option value="">Select department</option>
+                                        {['Engineering', 'HR', 'Finance', 'Marketing', 'Operations', 'Sales', 'IT', 'Legal', 'Design', 'Other'].map(d => (
+                                            <option key={d} value={d}>{d}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Location</label>
+                                    <input className="form-input" placeholder="e.g. Floor 2, Desk 14" value={data.location} onChange={e => setData('location', e.target.value)} />
+                                </div>
+                                <div className="form-group">
+                                    <label>Purchase Price</label>
+                                    <input className="form-input" type="number" value={data.purchase_price} onChange={e => setData('purchase_price', e.target.value)} />
+                                </div>
+                                <div className="form-group">
+                                    <label>Purchase Date</label>
+                                    <input className="form-input" type="date" value={data.purchase_date} onChange={e => setData('purchase_date', e.target.value)} />
+                                </div>
+                                <div className="form-group">
+                                    <label>Warranty Expiry</label>
+                                    <input className="form-input" type="date" value={data.warranty_expiry} onChange={e => setData('warranty_expiry', e.target.value)} />
+                                </div>
+                                <div className="form-group">
+                                    <label>Status *</label>
+                                    <select className="form-input" value={data.status} onChange={e => setData('status', e.target.value)}>
+                                        <option value="available">Available</option>
+                                        <option value="assigned">Assigned</option>
+                                        <option value="in-repair">In Repair</option>
+                                        <option value="retired">Retired</option>
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Assign To</label>
+                                    <select className="form-input" value={data.user_id} onChange={e => setData('user_id', e.target.value)}>
+                                        <option value="">Unassigned</option>
+                                        {users.map(u => (
+                                            <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group full">
+                                    <label>Notes</label>
+                                    <textarea className="form-input" rows={3} value={data.notes} onChange={e => setData('notes', e.target.value)} />
+                                </div>
                             </div>
-                        )}
-                        <div className="form-group">
-                            <label>Serial Number</label>
-                            <input className="form-input" value={data.serial_number} onChange={e => setData('serial_number', e.target.value)} />
-                        </div>
-                        <div className="form-group">
-                            <label>Vendor</label>
-                            <input className="form-input" value={data.vendor} onChange={e => setData('vendor', e.target.value)} />
-                        </div>
-                        <div className="form-group">
-                            <label>Department</label>
-                            <select className="form-input" value={data.department} onChange={e => setData('department', e.target.value)}>
-                                <option value="">Select department</option>
-                                {['Engineering', 'HR', 'Finance', 'Marketing', 'Operations', 'Sales', 'IT', 'Legal', 'Design', 'Other'].map(d => (
-                                    <option key={d} value={d}>{d}</option>
+                            <div style={{ display: 'flex', gap: 12, marginTop: 28, alignItems: 'center' }}>
+                                <button className="btn-save" disabled={processing} onClick={() => put(route('assets.update', asset.id))}>
+                                    {processing ? 'Saving…' : 'Save Changes'}
+                                </button>
+                                <Link href="/assets" style={{ padding: '11px 24px', fontSize: 14, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>Cancel</Link>
+                                <Link href={route('assets.destroy', asset.id)} method="delete" as="button" className="btn-delete">
+                                    Delete Asset
+                                </Link>
+                            </div>
+                        </>
+                    ) : (
+                        /* Manager: read-only view */
+                        <>
+                            <div className="form-grid">
+                                {[
+                                    ['Asset Number', asset.asset_number],
+                                    ['Name', asset.name],
+                                    ['Type', asset.type],
+                                    ['Platform', asset.device_platform],
+                                    ['Serial Number', asset.serial_number],
+                                    ['Vendor', asset.vendor],
+                                    ['Department', asset.department],
+                                    ['Location', asset.location],
+                                    ['Purchase Price', asset.purchase_price],
+                                    ['Purchase Date', asset.purchase_date],
+                                    ['Warranty Expiry', asset.warranty_expiry],
+                                    ['Status', asset.status],
+                                ].map(([lbl, val]) => (
+                                    <div className="form-group" key={lbl}>
+                                        <label>{lbl}</label>
+                                        <div className="ro-val">{roVal(val)}</div>
+                                    </div>
                                 ))}
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Location</label>
-                            <input className="form-input" placeholder="e.g. Floor 2, Desk 14" value={data.location} onChange={e => setData('location', e.target.value)} />
-                        </div>
-                        <div className="form-group">
-                            <label>Purchase Price</label>
-                            <input className="form-input" type="number" value={data.purchase_price} onChange={e => setData('purchase_price', e.target.value)} />
-                        </div>
-                        <div className="form-group">
-                            <label>Purchase Date</label>
-                            <input className="form-input" type="date" value={data.purchase_date} onChange={e => setData('purchase_date', e.target.value)} />
-                        </div>
-                        <div className="form-group">
-                            <label>Warranty Expiry</label>
-                            <input className="form-input" type="date" value={data.warranty_expiry} onChange={e => setData('warranty_expiry', e.target.value)} />
-                        </div>
-                        <div className="form-group">
-                            <label>Status *</label>
-                            <select className="form-input" value={data.status} onChange={e => setData('status', e.target.value)}>
-                                <option value="available">Available</option>
-                                <option value="assigned">Assigned</option>
-                                <option value="in-repair">In Repair</option>
-                                <option value="retired">Retired</option>
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Assign To</label>
-                            <select className="form-input" value={data.user_id} onChange={e => setData('user_id', e.target.value)}>
-                                <option value="">Unassigned</option>
-                                {users.map(u => (
-                                    <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="form-group full">
-                            <label>Notes</label>
-                            <textarea className="form-input" rows={3} value={data.notes} onChange={e => setData('notes', e.target.value)} />
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 12, marginTop: 28, alignItems: 'center' }}>
-                        <button className="btn-save" disabled={processing} onClick={() => put(route('assets.update', asset.id))}>
-                            {processing ? 'Saving…' : 'Save Changes'}
-                        </button>
-                        <Link href="/assets" style={{ padding: '11px 24px', fontSize: 14, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>Cancel</Link>
-                        {auth.user.role === 'admin' && (
-                            <Link href={route('assets.destroy', asset.id)} method="delete" as="button" className="btn-delete">
-                                Delete Asset
-                            </Link>
-                        )}
-                    </div>
+                                <div className="form-group">
+                                    <label>Assigned To</label>
+                                    <div className="ro-val">
+                                        {users.find(u => u.id === asset.user_id)?.name ?? 'Unassigned'}
+                                    </div>
+                                </div>
+                                <div className="form-group full">
+                                    <label>Notes</label>
+                                    <div className="ro-val">{roVal(asset.notes)}</div>
+                                </div>
+                            </div>
+                            <div style={{ marginTop: 20 }}>
+                                <Link href="/assets" style={{ padding: '11px 24px', fontSize: 14, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>← Back to Assets</Link>
+                            </div>
+                        </>
+                    )}
                 </div>
 
-                {/* ── Documents ── */}
+                {/* ── Documents: everyone can download, only admin can upload/delete ── */}
                 <div style={{ marginTop: 32, maxWidth: 720 }}>
                     <div className="form-panel">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -285,15 +331,14 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
                                     {documents.length} file{documents.length !== 1 ? 's' : ''} — invoices, warranty cards, contracts
                                 </div>
                             </div>
-                            {['admin', 'manager'].includes(auth.user.role) && (
+                            {isAdmin && (
                                 <button className="btn-add" style={{ fontSize: 13, padding: '8px 16px' }} onClick={() => setShowDocForm(v => !v)}>
                                     {showDocForm ? 'Cancel' : '+ Upload'}
                                 </button>
                             )}
                         </div>
 
-                        {/* Upload form */}
-                        {showDocForm && (
+                        {isAdmin && showDocForm && (
                             <div className="doc-upload-area" style={{ marginBottom: 20 }}>
                                 <div className="doc-form-row">
                                     <div>
@@ -343,7 +388,6 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
                             </div>
                         )}
 
-                        {/* Document list */}
                         {documents.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: 28, color: 'rgba(255,255,255,0.25)', fontSize: 14 }}>
                                 No documents uploaded yet.
@@ -361,12 +405,7 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
                                     </div>
                                 </div>
                                 <div className="doc-actions">
-                                    <a
-                                        href={`/assets/${asset.id}/documents/${doc.id}/download`}
-                                        className="doc-btn doc-btn-dl"
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
+                                    <a href={`/assets/${asset.id}/documents/${doc.id}/download`} className="doc-btn doc-btn-dl" target="_blank" rel="noreferrer">
                                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
                                             <polyline points="7 10 12 15 17 10"/>
@@ -374,10 +413,8 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
                                         </svg>
                                         Download
                                     </a>
-                                    {['admin', 'manager'].includes(auth.user.role) && (
-                                        <button className="doc-btn doc-btn-del" onClick={() => deleteDoc(doc.id)}>
-                                            Delete
-                                        </button>
+                                    {isAdmin && (
+                                        <button className="doc-btn doc-btn-del" onClick={() => deleteDoc(doc.id)}>Delete</button>
                                     )}
                                 </div>
                             </div>
@@ -385,7 +422,7 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
                     </div>
                 </div>
 
-                {/* ── Maintenance log ── */}
+                {/* ── Maintenance log: admin can add/delete, manager can view ── */}
                 <div style={{ marginTop: 32, maxWidth: 720 }}>
                     <div className="form-panel">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -393,12 +430,14 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
                                 <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 3 }}>Maintenance history</div>
                                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{maintenanceLogs.length} record{maintenanceLogs.length !== 1 ? 's' : ''}</div>
                             </div>
-                            <button className="btn-add" style={{ fontSize: 13, padding: '8px 16px' }} onClick={() => setShowMaintForm(v => !v)}>
-                                {showMaintForm ? 'Cancel' : '+ Log maintenance'}
-                            </button>
+                            {isAdmin && (
+                                <button className="btn-add" style={{ fontSize: 13, padding: '8px 16px' }} onClick={() => setShowMaintForm(v => !v)}>
+                                    {showMaintForm ? 'Cancel' : '+ Log maintenance'}
+                                </button>
+                            )}
                         </div>
 
-                        {showMaintForm && (
+                        {isAdmin && showMaintForm && (
                             <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 20, marginBottom: 20 }}>
                                 <div className="maint-form-grid">
                                     <div>
@@ -463,21 +502,23 @@ export default function EditAsset({ asset, users, logs, maintenanceLogs, documen
                                             Logged by {log.logger.name}
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => router.delete(`/maintenance/${log.id}`, { preserveScroll: true })}
-                                        style={{ background: 'none', border: 'none', color: 'rgba(255,107,107,0.5)', cursor: 'pointer', fontSize: 12, padding: '4px 8px', borderRadius: 6, transition: 'color 0.15s' }}
-                                        onMouseOver={e => (e.currentTarget.style.color = '#ff6b6b')}
-                                        onMouseOut={e  => (e.currentTarget.style.color = 'rgba(255,107,107,0.5)')}
-                                    >
-                                        Delete
-                                    </button>
+                                    {isAdmin && (
+                                        <button
+                                            onClick={() => router.delete(`/maintenance/${log.id}`, { preserveScroll: true })}
+                                            style={{ background: 'none', border: 'none', color: 'rgba(255,107,107,0.5)', cursor: 'pointer', fontSize: 12, padding: '4px 8px', borderRadius: 6, transition: 'color 0.15s' }}
+                                            onMouseOver={e => (e.currentTarget.style.color = '#ff6b6b')}
+                                            onMouseOut={e  => (e.currentTarget.style.color = 'rgba(255,107,107,0.5)')}
+                                        >
+                                            Delete
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                {/* ── Activity log ── */}
+                {/* ── Activity log: visible to all ── */}
                 {logs.length > 0 && (
                     <div style={{ marginTop: 24, maxWidth: 720 }}>
                         <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, color: '#fff' }}>Activity Log</h3>
